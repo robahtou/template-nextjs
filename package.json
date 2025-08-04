@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "devDependencies": {
-    "@types/node": "24.0.14",
-    "@types/react": "19.1.8",
-    "@types/react-dom": "19.1.6",
+    "@types/node": "24.2.0",
+    "@types/react": "19.1.9",
+    "@types/react-dom": "19.1.7",
     "autoprefixer": "10.4.21",
     "babel-plugin-react-compiler": "19.1.0-rc.2",
     "del-cli": "6.0.0",
@@ -14,12 +14,12 @@
     "postcss-import": "16.1.1",
     "postcss-media-minmax": "5.0.0",
     "postcss-nesting": "13.0.2",
-    "typescript": "5.8.3"
+    "typescript": "5.9.2"
   },
   "dependencies": {
-    "next": "15.4.1",
-    "react": "19.1.0",
-    "react-dom": "19.1.0"
+    "next": "15.4.5",
+    "react": "19.1.1",
+    "react-dom": "19.1.1"
   },
   "scripts": {
     "build": "NEXT_TELEMETRY_DISABLED=1 && pnpm noTel && next build",
