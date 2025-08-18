@@ -11,7 +11,7 @@ import '@Styles/themes.css';
 import '@Styles/utilities.css';
 
 
-export const metadata: Metadata = {
+const metadata: Metadata = {
   title: 'MyWebSite',
   description: 'MyWebSite'
 };
@@ -52,4 +52,5 @@ async function RootLayout({ children }: { children: React.ReactNode }) {
 }
 
 
+export { metadata };
 export default RootLayout;
