@@ -9,6 +9,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  issues: write
 
 concurrency:
   group: pnpm-update
@@ -45,7 +46,7 @@ jobs:
         continue-on-error: true
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24.6.0
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 
