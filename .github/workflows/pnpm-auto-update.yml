@@ -1,9 +1,9 @@
-name: Twice-daily PNPM update -> PR (+ email on changes or failures)
+name: PNPM update -> PR
 
 on:
   schedule:
-    - cron: "0 9 * * *"   # 09:00 UTC (fixed)
-    - cron: "0 21 * * *"  # 21:00 UTC (fixed)
+    - cron: "0 9 * * *"   # 09:00 UTC
+    - cron: "0 21 * * *"  # 21:00 UTC
   workflow_dispatch: {}
 
 permissions:
@@ -26,6 +26,20 @@ jobs:
         with:
           fetch-depth: 0
 
+      # Per pnpm docs: install pnpm first, then setup-node with cache
+      # Omitting `version:` uses your package.json "packageManager": "pnpm@9.15.0"
+      - name: Setup pnpm
+        id: setup_pnpm
+        continue-on-error: true
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Add pnpm to PATH
+        id: pnpm_path
+        continue-on-error: true
+        run: echo "${{ steps.setup_pnpm.outputs.bin_dest }}" >> "$GITHUB_PATH"
+
       - name: Setup Node
         id: setup_node
         continue-on-error: true
@@ -33,36 +47,23 @@ jobs:
         with:
           node-version: 20
           cache: pnpm
-
-      - name: Setup pnpm
-        id: setup_pnpm
-        continue-on-error: true
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
-
-      - name: Add pnpm to PATH
-        run: echo "$PNPM_HOME" >> $GITHUB_PATH
-        env:
-          PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Install deps (frozen)
         id: install
         continue-on-error: true
         run: pnpm install --frozen-lockfile
 
-      # Capture pnpm's exit code but don't stop the workflow yet,
-      # so we can still compute diffs / send email / mark failure at the end.
       - name: Run pnpm update -L and capture logs
         id: run
         continue-on-error: true
         shell: bash
         run: |
-          ts=$(date -u +'%Y-%m-%d_%H-%M-%S')
-          echo "ts=$ts" >> $GITHUB_OUTPUT
+          ts=$(date -u +'%Y-%m-%d_%H-%M-%S')   # filesystem-safe for artifact names
+          echo "ts=$ts" >> "$GITHUB_OUTPUT"
           pnpm update -L 2>&1 | tee run.log
           ec=$?
-          echo "exit_code=$ec" >> $GITHUB_OUTPUT
+          echo "exit_code=$ec" >> "$GITHUB_OUTPUT"
 
       - name: Detect changes
         id: changes
@@ -70,9 +71,9 @@ jobs:
         shell: bash
         run: |
           if [[ -n "$(git status --porcelain)" ]]; then
-            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "changed=true" >> "$GITHUB_OUTPUT"
           else
-            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "changed=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Build package.json diff summary (exclude lockfile)
@@ -82,17 +83,15 @@ jobs:
         run: |
           files=$(git ls-files -m | grep -E '(^|/)package\.json$' || true)
           if [[ -z "$files" ]]; then
-            echo "summary=No package.json changes." >> $GITHUB_OUTPUT
+            echo "summary=No package.json changes." >> "$GITHUB_OUTPUT"
           else
-            {
-              echo "summary<<EOF"
-              for f in $files; do
-                echo "### $f"
-                git --no-pager diff --unified=0 --no-color -- "$f" || true
-                echo
-              done
-              echo "EOF"
-            } >> $GITHUB_OUTPUT
+            echo "summary<<EOF" >> "$GITHUB_OUTPUT"
+            for f in $files; do
+              echo "### $f"
+              git --no-pager diff --unified=0 --no-color -- "$f" || true
+              echo
+            done
+            echo "EOF" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Upload run log (artifact)
@@ -104,8 +103,8 @@ jobs:
           path: run.log
           if-no-files-found: warn
 
-      # Only open a PR if there are changes AND pnpm succeeded
-      - name: Create PR with updated deps
+      # Create PR on success + changes using the default GITHUB_TOKEN
+      - name: Create PR (GITHUB_TOKEN)
         id: cpr
         if: ${{ steps.changes.outputs.changed == 'true' && steps.run.outputs.exit_code == '0' }}
         uses: peter-evans/create-pull-request@v6
@@ -127,84 +126,43 @@ jobs:
           labels: |
             dependencies
             automated
-          draft: false
           assignees: robahtou
 
-      - name: Collect context for email
+      - name: Collect PR URL + log tail (for update email)
         id: ctx
-        if: always()
+        if: ${{ steps.changes.outputs.changed == 'true' && steps.run.outputs.exit_code == '0' }}
         shell: bash
         run: |
-          pr_url="${{ steps.cpr.outputs.pull-request-url }}"
-          echo "pr_url=${pr_url:-N/A}" >> $GITHUB_OUTPUT
+          echo "pr_url=${{ steps.cpr.outputs.pull-request-url || 'N/A' }}" >> "$GITHUB_OUTPUT"
           if [[ -f run.log ]]; then
-            echo "tail<<EOF" >> $GITHUB_OUTPUT
-            tail -n 50 run.log >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
+            echo "tail<<EOF" >> "$GITHUB_OUTPUT"
+            tail -n 50 run.log >> "$GITHUB_OUTPUT"
+            echo "EOF" >> "$GITHUB_OUTPUT"
           else
-            echo "tail=No run.log available." >> $GITHUB_OUTPUT
+            echo "tail=No run.log available." >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Collect first error lines
-        id: errlines
-        if: always()
-        shell: bash
-        run: |
-          if [[ -f run.log ]]; then
-            errs=$(grep -i "error" run.log | head -n 5 || true)
-            if [[ -z "$errs" ]]; then
-              errs="(no 'error' lines found in run.log)"
-            fi
-          else
-            errs="run.log missing"
-          fi
-          echo "lines<<EOF" >> $GITHUB_OUTPUT
-          echo "$errs" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
-      - name: Determine email subject prefix
-        id: subj
-        if: always()
-        run: |
-          if [ "${{ steps.run.outputs.exit_code }}" != "0" ] || [ "${{ job.status }}" != "success" ]; then
-            prefix="[FAILED]"
-          elif [ "${{ steps.changes.outputs.changed }}" == "true" ]; then
-            prefix="[UPDATED]"
-          fi
-          echo "prefix=$prefix" >> $GITHUB_OUTPUT
-
-      - name: Send email summary via Resend SMTP
+      # === Email ONLY when updates occurred (success + changes) ===
+      - name: Send update email via Resend SMTP
         id: email
-        if: ${{ always() && ( job.status != 'success' || steps.run.outputs.exit_code != '0' || steps.changes.outputs.changed == 'true' ) }}
+        if: ${{ steps.changes.outputs.changed == 'true' && steps.run.outputs.exit_code == '0' }}
         uses: dawidd6/action-send-mail@v6
         with:
-          server_address: ${{ vars.SMTP_HOST }}
-          server_port: ${{ vars.SMTP_PORT }}
-          username: ${{ vars.SMTP_USERNAME }}
-          password: ${{ secrets.RESEND_API_KEY }}
-          secure: false
-          from: ${{ vars.EMAIL_FROM }}
-          to: ${{ vars.EMAIL_TO }}
+          server_address: ${{ vars.SMTP_HOST }}     # smtp.resend.com
+          server_port: ${{ vars.SMTP_PORT }}        # 587
+          username: ${{ vars.SMTP_USERNAME }}       # resend
+          password: ${{ secrets.RESEND_API_KEY }}   # Resend API key
+          secure: false                             # 587 uses STARTTLS
+          from: ${{ vars.EMAIL_FROM }}              # "GitHub Actions <updates@reactatx.org>"
+          to: ${{ vars.EMAIL_TO }}                  # "roberto.fuentes@webfountain.io"
           subject: >
-            [pnpm update] ${{ job.status }} — ${{ github.repository }} @ ${{ steps.run.outputs.ts }}
+            [UPDATED] pnpm update — ${{ github.repository }} @ ${{ steps.run.outputs.ts }}
           body: |
             Repository: ${{ github.repository }}
             Workflow: ${{ github.workflow }} — Run #${{ github.run_number }}
-            Status: ${{ job.status }}
+            Status: success
             PNPM exit code: ${{ steps.run.outputs.exit_code }}
             Actor: ${{ github.actor }}
-            Commit: ${{ github.sha }}
-
-            Steps:
-              - checkout:  ${{ steps.checkout.outcome }}
-              - setup_node: ${{ steps.setup_node.outcome }}
-              - setup_pnpm: ${{ steps.setup_pnpm.outcome }}
-              - install:    ${{ steps.install.outcome }}
-              - update:     ${{ steps.run.outcome }}
-              - create_pr:  ${{ steps.cpr.outcome || 'skipped' }}
-
-            Actions run:
-            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
             PR: ${{ steps.ctx.outputs.pr_url }}
 
@@ -212,65 +170,27 @@ jobs:
             ------------------------------------------------------------
             ${{ steps.pkgdiff.outputs.summary }}
 
-            First error lines:
-            ------------------------------------------------------------
-            ${{ steps.errlines.outputs.lines }}
-
             Tail of run.log (last 50 lines):
             ------------------------------------------------------------
             ${{ steps.ctx.outputs.tail }}
 
-      # Final: fail job if ANY critical step failed
+      # Final: fail job if ANY critical step failed (keeps GitHub failure emails)
       - name: Mark job failed if any step failed
         if: always()
         run: |
           failed=0
-
-          if [ "${{ steps.checkout.outcome }}" = "failure" ]; then
-            echo "::error::Step 'checkout' failed"
-            failed=1
-          fi
-
-          if [ "${{ steps.setup_node.outcome }}" = "failure" ]; then
-            echo "::error::Step 'setup_node' failed"
-            failed=1
-          fi
-
-          if [ "${{ steps.setup_pnpm.outcome }}" = "failure" ]; then
-            echo "::error::Step 'setup_pnpm' failed"
-            failed=1
-          fi
-
-          if [ "${{ steps.install.outcome }}" = "failure" ]; then
-            echo "::error::Step 'install' failed"
-            failed=1
-          fi
-
-          if [ "${{ steps.run.outcome }}" = "failure" ]; then
-            echo "::error::Step 'run' failed"
-            failed=1
-          fi
-
-          if [ "${{ steps.changes.outcome }}" = "failure" ]; then
-            echo "::error::Step 'changes' failed"
-            failed=1
-          fi
-
-          if [ "${{ steps.pkgdiff.outcome }}" = "failure" ]; then
-            echo "::error::Step 'pkgdiff' failed"
-            failed=1
-          fi
-
+          if [ "${{ steps.checkout.outcome }}"   = "failure" ]; then echo "::error::Step 'checkout' failed";   failed=1; fi
+          if [ "${{ steps.setup_pnpm.outcome }}" = "failure" ]; then echo "::error::Step 'setup_pnpm' failed"; failed=1; fi
+          if [ "${{ steps.pnpm_path.outcome }}"  = "failure" ]; then echo "::error::Step 'pnpm_path' failed";  failed=1; fi
+          if [ "${{ steps.setup_node.outcome }}" = "failure" ]; then echo "::error::Step 'setup_node' failed"; failed=1; fi
+          if [ "${{ steps.install.outcome }}"    = "failure" ]; then echo "::error::Step 'install' failed";    failed=1; fi
+          if [ "${{ steps.run.outcome }}"        = "failure" ]; then echo "::error::Step 'run' failed";        failed=1; fi
+          if [ "${{ steps.changes.outcome }}"    = "failure" ]; then echo "::error::Step 'changes' failed";    failed=1; fi
+          if [ "${{ steps.pkgdiff.outcome }}"    = "failure" ]; then echo "::error::Step 'pkgdiff' failed";    failed=1; fi
+          if [ "${{ steps.artifact.outcome }}"   = "failure" ]; then echo "::error::Step 'artifact' failed";   failed=1; fi
+          if [ "${{ steps.cpr.outcome }}"        = "failure" ]; then echo "::error::Step 'cpr' failed";        failed=1; fi
           if [ "${{ steps.run.outputs.exit_code }}" != "0" ]; then
             echo "::error::pnpm update -L failed with exit code ${{ steps.run.outputs.exit_code }}"
             failed=1
           fi
-
-          if [ "${{ steps.artifact.outcome }}" = "failure" ]; then
-            echo "::error::Step 'artifact' failed"
-            failed=1
-          fi
-
-          if [ $failed -ne 0 ]; then
-            exit 1
-          fi
+          if [ $failed -ne 0 ]; then exit 1; fi
