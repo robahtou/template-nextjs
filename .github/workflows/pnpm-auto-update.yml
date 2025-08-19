@@ -104,6 +104,22 @@ jobs:
           path: run.log
           if-no-files-found: warn
 
+      - name: Assemble PR body
+        id: prbody
+        shell: bash
+        run: |
+          cat > pr_body.md <<EOF
+          Automated dependency update via \`pnpm update -L\`.
+
+          - Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          - Log artifact: pnpm-update-log-${{ steps.run.outputs.ts }}
+
+          **package.json diff summary**
+          ---
+          EOF
+          # Append the multiline summary safely
+          printf "%s\n" "${{ steps.pkgdiff.outputs.summary }}" >> pr_body.md
+
       # Create PR on success + changes using the default GITHUB_TOKEN
       - name: Create PR (GITHUB_TOKEN)
         id: cpr
@@ -112,16 +128,7 @@ jobs:
         with:
           commit-message: "chore(deps): update to latest with pnpm -L"
           title: "chore(deps): update to latest (pnpm -L) — ${{ steps.run.outputs.ts }}"
-          body: |
-            Automated dependency update via `pnpm update -L`.
-
-            - Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-            - Log artifact: pnpm-update-log-${{ steps.run.outputs.ts }}
-
-            **package.json diff summary**
-            (lockfile intentionally omitted)
-            ---
-            ${{ steps.pkgdiff.outputs.summary }}
+          body-path: pr_body.md
           branch: chore/pnpm-update-${{ steps.run.outputs.ts }}
           delete-branch: true
           labels: |
