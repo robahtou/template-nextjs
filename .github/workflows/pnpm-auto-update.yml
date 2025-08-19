@@ -129,52 +129,6 @@ jobs:
             automated
           assignees: robahtou
 
-      - name: Collect PR URL + log tail (for update email)
-        id: ctx
-        if: ${{ steps.changes.outputs.changed == 'true' && steps.run.outputs.exit_code == '0' }}
-        shell: bash
-        run: |
-          echo "pr_url=${{ steps.cpr.outputs.pull-request-url || 'N/A' }}" >> "$GITHUB_OUTPUT"
-          if [[ -f run.log ]]; then
-            echo "tail<<EOF" >> "$GITHUB_OUTPUT"
-            tail -n 50 run.log >> "$GITHUB_OUTPUT"
-            echo "EOF" >> "$GITHUB_OUTPUT"
-          else
-            echo "tail=No run.log available." >> "$GITHUB_OUTPUT"
-          fi
-
-      # === Email ONLY when updates occurred (success + changes) ===
-      - name: Send update email via Resend SMTP
-        id: email
-        if: ${{ steps.changes.outputs.changed == 'true' && steps.run.outputs.exit_code == '0' }}
-        uses: dawidd6/action-send-mail@v6
-        with:
-          server_address: ${{ vars.SMTP_HOST }}     # smtp.resend.com
-          server_port: ${{ vars.SMTP_PORT }}        # 587
-          username: ${{ vars.SMTP_USERNAME }}       # resend
-          password: ${{ secrets.RESEND_API_KEY }}   # Resend API key
-          secure: false                             # 587 uses STARTTLS
-          from: ${{ vars.EMAIL_FROM }}              # "GitHub Actions <updates@reactatx.org>"
-          to: ${{ vars.EMAIL_TO }}                  # "roberto.fuentes@webfountain.io"
-          subject: >
-            [UPDATED] pnpm update — ${{ github.repository }} @ ${{ steps.run.outputs.ts }}
-          body: |
-            Repository: ${{ github.repository }}
-            Workflow: ${{ github.workflow }} — Run #${{ github.run_number }}
-            Status: success
-            PNPM exit code: ${{ steps.run.outputs.exit_code }}
-            Actor: ${{ github.actor }}
-
-            PR: ${{ steps.ctx.outputs.pr_url }}
-
-            package.json diff summary:
-            ------------------------------------------------------------
-            ${{ steps.pkgdiff.outputs.summary }}
-
-            Tail of run.log (last 50 lines):
-            ------------------------------------------------------------
-            ${{ steps.ctx.outputs.tail }}
-
       # Final: fail job if ANY critical step failed (keeps GitHub failure emails)
       - name: Mark job failed if any step failed
         if: always()
