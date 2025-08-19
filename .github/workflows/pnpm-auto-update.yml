@@ -117,8 +117,16 @@ jobs:
           **package.json diff summary**
           ---
           EOF
-          # Append the multiline summary safely
-          printf "%s\n" "${{ steps.pkgdiff.outputs.summary }}" >> pr_body.md
+          files=$(git diff --name-only | grep -E '(^|/)package\.json$' || true)
+          if [ -z "$files" ]; then
+            echo "No package.json changes." >> pr_body.md
+          else
+            for f in $files; do
+              echo "### $f" >> pr_body.md
+              git --no-pager diff --unified=0 --no-color -- "$f" >> pr_body.md || true
+              echo >> pr_body.md
+            done
+          fi
 
       # Create PR on success + changes using the default GITHUB_TOKEN
       - name: Create PR (GITHUB_TOKEN)
@@ -126,8 +134,8 @@ jobs:
         if: ${{ steps.changes.outputs.changed == 'true' && steps.run.outputs.exit_code == '0' }}
         uses: peter-evans/create-pull-request@v6
         with:
-          commit-message: "chore(deps): update to latest with pnpm -L"
-          title: "chore(deps): update to latest (pnpm -L) — ${{ steps.run.outputs.ts }}"
+          commit-message: "chore(deps): update packages to latest"
+          title: "chore(deps): update packages to latest"
           body-path: pr_body.md
           branch: chore/pnpm-update-${{ steps.run.outputs.ts }}
           delete-branch: true
