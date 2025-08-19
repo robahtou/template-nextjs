@@ -18,12 +18,6 @@ pnpm start
 pnpm buil
 ```
 
-## DevDependencies
-
-
-
-
-
 ## Project Structure
 
 This project follows a standard Next.js App Router structure with some added conventions for organizing code and assets.
@@ -37,6 +31,7 @@ This project follows a standard Next.js App Router structure with some added con
   - **`app/`**: Core of the Next.js App Router. This is where pages, layouts, and routes are defined.
     - `layout.tsx`: The root layout for the entire application.
     - `page.tsx`: The main entry page for the application.
+    - `_components/`: Reusable components that ONLY belong to this route.
   - **`assets/`**: Global static assets that are part of the build process.
     - `fonts/`: Font files for the application.
     - `styles/`: Global stylesheets, organized by concern (base, layouts, themes, etc.).
