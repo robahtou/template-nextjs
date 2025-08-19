@@ -9,6 +9,13 @@ import '@Styles/typography.css';
 import '@Styles/layouts.css';
 import '@Styles/themes.css';
 import '@Styles/utilities.css';
+import '@Styles/semantics.css';
+import '@Styles/forms.css';
+import '@Styles/motion.css';
+import '@Styles/a11y.css';
+import '@Styles/scrollbars.css';
+import '@Styles/prose.css';
+import '@Styles/print.css';
 
 
 const metadata: Metadata = {
@@ -28,19 +35,27 @@ async function RootLayout({ children }: { children: React.ReactNode }) {
         <link rel="icon"              href="favicon/icon.png"       type="image/png"      sizes="96x96"   />
         <link rel="apple-touch-icon"  href="favicon/apple-icon.png" type="image/png"      sizes="180x180" />
 
-        {/* set the theme based on the user's preference */}
+        {/* Persist user-selected theme; fallback to system preference */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
-                const isLight = window.matchMedia('(prefers-color-scheme: light)').matches;
-                document.documentElement.setAttribute('data-theme', isLight ? 'light' : 'dark');
+                try {
+                  var saved = localStorage.getItem('pg-query-client-theme');
+                  var theme = (saved === 'light' || saved === 'dark')
+                    ? saved
+                    : (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+                  document.documentElement.setAttribute('data-theme', theme);
+                } catch (e) {
+                  var isLight = window.maπtchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+                  document.documentElement.setAttribute('data-theme', isLight ? 'light' : 'dark');
+                }
               })();
             `,
           }}
         />
 
-        <style>@layer normalize, scale, typography, base, layouts, themes, utilities;</style>
+        <style>@layer normalize, base, scale, themes, semantics, typography, motion, layouts, forms, a11y, scrollbars, prose, print, utilities;</style>
       </head>
 
       <body>
