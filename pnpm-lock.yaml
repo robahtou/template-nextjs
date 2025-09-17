@@ -19,8 +19,8 @@ importers:
         version: 19.1.1(react@19.1.1)
     devDependencies:
       '@types/node':
-        specifier: 24.5.0
-        version: 24.5.0
+        specifier: 24.5.1
+        version: 24.5.1
       '@types/react':
         specifier: 19.1.13
         version: 19.1.13
@@ -300,8 +300,8 @@ packages:
   '@swc/helpers@0.5.15':
     resolution: {integrity: sha512-JQ5TuMi45Owi4/BIMAJBoSQoOJu12oOk/gADqlcUL9JEdHB8vyjUSsxqeNXnmXHjYKMi2WcYtezGEEhqUI/E2g==}
 
-  '@types/node@24.5.0':
-    resolution: {integrity: sha512-y1dMvuvJspJiPSDZUQ+WMBvF7dpnEqN4x9DDC9ie5Fs/HUZJA3wFp7EhHoVaKX/iI0cRoECV8X2jL8zi0xrHCg==}
+  '@types/node@24.5.1':
+    resolution: {integrity: sha512-/SQdmUP2xa+1rdx7VwB9yPq8PaKej8TD5cQ+XfKDPWWC+VDJU4rvVVagXqKUzhKjtFoNA8rXDJAkCxQPAe00+Q==}
 
   '@types/react-dom@19.1.9':
     resolution: {integrity: sha512-qXRuZaOsAdXKFyOhRBg6Lqqc0yay13vN7KrIg4L7N4aaHN68ma9OK3NE1BoDFgFOTfM7zg+3/8+2n8rLUH3OKQ==}
@@ -375,8 +375,8 @@ packages:
     resolution: {integrity: sha512-vEtk+OcP7VBRtQZ1EJ3bdgzSfBjgnEalLTp5zjJrS+2Z1w2KZly4SBdac/WDU3hhsNAZ9E8SC96ME4Ey8MZ7cg==}
     engines: {node: '>=8'}
 
-  electron-to-chromium@1.5.218:
-    resolution: {integrity: sha512-uwwdN0TUHs8u6iRgN8vKeWZMRll4gBkz+QMqdS7DDe49uiK68/UX92lFb61oiFPrpYZNeZIqa4bA7O6Aiasnzg==}
+  electron-to-chromium@1.5.220:
+    resolution: {integrity: sha512-TWXijEwR1ggr4BdAKrb1nMNqYLTx1/4aD1fkeZU+FVJGTKu53/T7UyHKXlqEX3Ub02csyHePbHmkvnrjcaYzMA==}
 
   escalade@3.2.0:
     resolution: {integrity: sha512-WUj2qlxaQtO4g6Pq5c29GTcWGDyd8itL8zTlipgECz3JesAiiOKotd8JU6otB3PACgG6xkJUyVhboMS+bje/jA==}
@@ -813,7 +813,7 @@ snapshots:
     dependencies:
       tslib: 2.8.1
 
-  '@types/node@24.5.0':
+  '@types/node@24.5.1':
     dependencies:
       undici-types: 7.12.0
 
@@ -849,7 +849,7 @@ snapshots:
     dependencies:
       baseline-browser-mapping: 2.8.4
       caniuse-lite: 1.0.30001743
-      electron-to-chromium: 1.5.218
+      electron-to-chromium: 1.5.220
       node-releases: 2.0.21
       update-browserslist-db: 1.1.3(browserslist@4.26.2)
 
@@ -898,7 +898,7 @@ snapshots:
   detect-libc@2.1.0:
     optional: true
 
-  electron-to-chromium@1.5.218: {}
+  electron-to-chromium@1.5.220: {}
 
   escalade@3.2.0: {}
 
