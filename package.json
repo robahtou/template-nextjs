@@ -8,8 +8,8 @@
   },
   "packageManager": "pnpm@10.15.0",
   "devDependencies": {
-    "@types/node": "24.5.2",
-    "@types/react": "19.1.15",
+    "@types/node": "24.6.1",
+    "@types/react": "19.1.16",
     "@types/react-dom": "19.1.9",
     "autoprefixer": "10.4.21",
     "babel-plugin-react-compiler": "19.1.0-rc.3",
@@ -19,7 +19,7 @@
     "postcss-import": "16.1.1",
     "postcss-media-minmax": "5.0.0",
     "postcss-nesting": "13.0.2",
-    "typescript": "5.9.2"
+    "typescript": "5.9.3"
   },
   "dependencies": {
     "next": "15.5.4",
