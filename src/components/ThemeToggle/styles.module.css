@@ -1,0 +1,15 @@
+.toggle {
+  padding-block: var(--space-2);
+  padding-inline: var(--space-3);
+  border: var(--border-1) solid var(--button-border-primary);
+  border-radius: var(--radius-8);
+  background: var(--button-primary);
+  color: var(--button-text);
+  transition: background-color var(--duration-150) var(--ease-standard);
+}
+.toggle:hover { background: var(--button-hover); }
+.toggle:disabled {
+  background: var(--button-disabled);
+  color: var(--button-text-disabled);
+  cursor: not-allowed;
+}
