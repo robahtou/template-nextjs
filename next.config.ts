@@ -2,14 +2,17 @@ import type { NextConfig } from 'next';
 
 
 const nextConfig: NextConfig = {
+  cacheComponents: true,
+  reactCompiler: true,
+
   devIndicators: {
     position: 'bottom-right'
   },
 
   experimental: {
     cssChunking: 'strict',
-    reactCompiler: true,
-    viewTransition: true
+    viewTransition: true,
+    turbopackFileSystemCacheForDev: true
   },
 
   poweredByHeader: false,
