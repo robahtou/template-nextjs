@@ -8,7 +8,7 @@
   },
   "packageManager": "pnpm@10.15.0",
   "devDependencies": {
-    "@types/node": "25.0.0",
+    "@types/node": "25.0.2",
     "@types/react": "19.2.7",
     "@types/react-dom": "19.2.3",
     "autoprefixer": "10.4.22",
@@ -22,9 +22,9 @@
     "typescript": "5.9.3"
   },
   "dependencies": {
-    "next": "16.0.9",
-    "react": "19.2.2",
-    "react-dom": "19.2.2"
+    "next": "16.0.10",
+    "react": "19.2.3",
+    "react-dom": "19.2.3"
   },
   "scripts": {
     "build": "NEXT_TELEMETRY_DISABLED=1 && pnpm noTel && next build",
