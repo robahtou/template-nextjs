@@ -8,10 +8,10 @@
   },
   "packageManager": "pnpm@10.15.0",
   "devDependencies": {
-    "@types/node": "25.1.0",
+    "@types/node": "25.2.0",
     "@types/react": "19.2.10",
     "@types/react-dom": "19.2.3",
-    "autoprefixer": "10.4.23",
+    "autoprefixer": "10.4.24",
     "babel-plugin-react-compiler": "19.1.0-rc.3",
     "del-cli": "7.0.0",
     "postcss": "8.5.6",
