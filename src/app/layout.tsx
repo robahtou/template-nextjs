@@ -1,21 +1,7 @@
 import type { Metadata } from 'next';
 import { interVariable, interDisplay } from '@Lib/fonts';
 
-import '@Styles/scale.css';
-import '@Styles/normalize.css';
-import '@Styles/base.css';
-import '@Styles/mediaQueries.css';
-import '@Styles/typography.css';
-import '@Styles/layouts.css';
-import '@Styles/themes.css';
-import '@Styles/utilities.css';
-import '@Styles/semantics.css';
-import '@Styles/forms.css';
-import '@Styles/motion.css';
-import '@Styles/a11y.css';
-import '@Styles/scrollbars.css';
-import '@Styles/prose.css';
-import '@Styles/print.css';
+import '@Styles/index.css';
 
 
 const metadata: Metadata = {
@@ -54,8 +40,6 @@ async function RootLayout({ children }: { children: React.ReactNode }) {
             `,
           }}
         />
-
-        <style>@layer normalize, base, scale, themes, semantics, typography, motion, layouts, forms, a11y, scrollbars, prose, print, utilities;</style>
       </head>
 
       <body>

@@ -1,0 +1,18 @@
+/* AIDEV-NOTE: Global CSS entrypoint and cascade-layer contract. */
+@layer normalize, base, scale, themes, semantics, typography, motion, layouts, forms, a11y, scrollbars, prose, print, utilities;
+
+@import url('@Styles/mediaQueries.css');
+@import url('@Styles/normalize.css');
+@import url('@Styles/base.css');
+@import url('@Styles/scale.css');
+@import url('@Styles/themes.css');
+@import url('@Styles/semantics.css');
+@import url('@Styles/typography.css');
+@import url('@Styles/motion.css');
+@import url('@Styles/layouts.css');
+@import url('@Styles/forms.css');
+@import url('@Styles/a11y.css');
+@import url('@Styles/scrollbars.css');
+@import url('@Styles/prose.css');
+@import url('@Styles/print.css');
+@import url('@Styles/utilities.css');
