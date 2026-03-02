@@ -33,7 +33,7 @@ async function RootLayout({ children }: { children: React.ReactNode }) {
                     : (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
                   document.documentElement.setAttribute('data-theme', theme);
                 } catch (e) {
-                  var isLight = window.maπtchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+                  var isLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
                   document.documentElement.setAttribute('data-theme', isLight ? 'light' : 'dark');
                 }
               })();
