@@ -27,7 +27,7 @@ async function RootLayout({ children }: { children: React.ReactNode }) {
             __html: `
               (function() {
                 try {
-                  var saved = localStorage.getItem('pg-query-client-theme');
+                  var saved = localStorage.getItem('app-theme');
                   var theme = (saved === 'light' || saved === 'dark')
                     ? saved
                     : (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
