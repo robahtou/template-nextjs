@@ -8,7 +8,7 @@
   },
   "packageManager": "pnpm@11.1.0+sha512.0c44e842e5686b2c061a81adda8b2258bd8818e9704b2cf2c63d56b931a7b2e910092e085027003b96ca3911ab56a07f6df5abaed2be9925034cdd686a535b14",
   "devDependencies": {
-    "@types/node": "25.7.0",
+    "@types/node": "25.6.0",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "autoprefixer": "10.5.0",
@@ -22,7 +22,7 @@
     "typescript": "6.0.3"
   },
   "dependencies": {
-    "next": "16.2.6",
+    "next": "16.2.5",
     "react": "19.2.6",
     "react-dom": "19.2.6"
   },
