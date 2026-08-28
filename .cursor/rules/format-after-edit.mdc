@@ -1,0 +1,12 @@
+---
+description: "Format supported files after editing"
+alwaysApply: true
+---
+# Format After Edit
+
+- The project hook runs `pnpm fmt:file --file <path>` for supported edited files.
+- If the hook is unavailable, run that command manually for each supported TypeScript, JavaScript, or CSS file.
+- Pass the path as a separate quoted argument; do not interpolate it into a shell command.
+- Use a focused formatter during iteration. Reserve `pnpm fmt` for an intentional repository-wide formatting pass.
+- Review formatter changes, then run the corresponding non-fixing lint command.
+- Never hide a formatter failure or unrelated worktree change by rewriting other files.

@@ -1,61 +1,42 @@
-/* Dark theme as the default */
-:root {
-  color-scheme: dark;
-  --background: #0a0a0a;
-  --foreground: #ededed;
-
-  /* color primitives */
-  --gray-rgb: 255, 255, 255;
-  --gray-alpha-200: rgba(var(--gray-rgb), 0.145);
-  --gray-alpha-100: rgba(var(--gray-rgb), 0.06);
-
-  /* Aliases that follow the px/rem policy. These reference theme primitives and update with theme. */
-  --text-primary: var(--foreground);
-  --bg-color:     var(--background);
-  --link-color:   var(--foreground);
-
-  /* shadow colors used by scale shadow tokens */
-  --shadow-color-1: var(--gray-alpha-100);
-  --shadow-color-2: var(--gray-alpha-200);
-
-  /* Derived color tokens */
-  --border-color: var(--gray-alpha-200);
-}
-
-/* Light theme if the user prefers it */
-@media (prefers-color-scheme: light) {
+@layer themes {
+  /* Dark theme is the deterministic fallback before the bootstrap script runs. */
   :root {
-    color-scheme: light;
-    --background: #ffffff;
-    --foreground: #171717;
-
-    /* component-specific variables */
-    --gray-rgb: 0, 0, 0;
-    --gray-alpha-200: rgba(var(--gray-rgb), 0.08);
-    --gray-alpha-100: rgba(var(--gray-rgb), 0.05);
+    color-scheme      : dark;
+    --background      : #0a0a0a;
+    --foreground      : #ededed;
+    --gray-rgb        : 255, 255, 255;
+    --gray-alpha-200  : rgba(var(--gray-rgb), 0.145);
+    --gray-alpha-100  : rgba(var(--gray-rgb), 0.06);
+    --shadow-color-1  : var(--gray-alpha-100);
+    --shadow-color-2  : var(--gray-alpha-200);
   }
-}
 
-/* Manual override with a data-theme attribute: toggle theme */
-/* These rules have higher specificity than :root so they will always override the system preference. */
-[data-theme="light"] {
-  color-scheme: light;
-  --background: #ffffff;
-  --foreground: #171717;
+  @media (prefers-color-scheme: light) {
+    :root {
+      color-scheme      : light;
+      --background      : #ffffff;
+      --foreground      : #171717;
+      --gray-rgb        : 0, 0, 0;
+      --gray-alpha-200  : rgba(var(--gray-rgb), 0.08);
+      --gray-alpha-100  : rgba(var(--gray-rgb), 0.05);
+    }
+  }
 
-  /* color primitives */
-  --gray-rgb: 0, 0, 0;
-  --gray-alpha-200: rgba(var(--gray-rgb), 0.08);
-  --gray-alpha-100: rgba(var(--gray-rgb), 0.05);
-}
+  [data-theme="light"] {
+    color-scheme      : light;
+    --background      : #ffffff;
+    --foreground      : #171717;
+    --gray-rgb        : 0, 0, 0;
+    --gray-alpha-200  : rgba(var(--gray-rgb), 0.08);
+    --gray-alpha-100  : rgba(var(--gray-rgb), 0.05);
+  }
 
-[data-theme="dark"] {
-  color-scheme: dark;
-  --background: #0a0a0a;
-  --foreground: #ededed;
-
-  /* color primitives */
-  --gray-rgb: 255, 255, 255;
-  --gray-alpha-200: rgba(var(--gray-rgb), 0.145);
-  --gray-alpha-100: rgba(var(--gray-rgb), 0.06);
+  [data-theme="dark"] {
+    color-scheme      : dark;
+    --background      : #0a0a0a;
+    --foreground      : #ededed;
+    --gray-rgb        : 255, 255, 255;
+    --gray-alpha-200  : rgba(var(--gray-rgb), 0.145);
+    --gray-alpha-100  : rgba(var(--gray-rgb), 0.06);
+  }
 }

@@ -1,51 +1,48 @@
-import type { Metadata } from 'next';
-import { interVariable, interDisplay } from '@Lib/fonts';
+import type { Metadata }                              from 'next';
+import type { ReactNode }                             from 'react';
+
+import { THEME_ATTRIBUTE, THEME_STORAGE_KEY, THEMES } from '@Lib/theme-preference';
 
 import '@Styles/index.css';
 
 
 const metadata: Metadata = {
-  title: 'MyWebSite',
-  description: 'MyWebSite'
+  title      : 'Next.js Template',
+  description: 'A greenfield Next.js application template.'
 };
 
-async function RootLayout({ children }: { children: React.ReactNode }) {
+const themeBootstrap = `
+  (() => {
+    const attribute = ${JSON.stringify(THEME_ATTRIBUTE)};
+    const storageKey = ${JSON.stringify(THEME_STORAGE_KEY)};
+    const themes = ${JSON.stringify(THEMES)};
+    let savedTheme = null;
+
+    try {
+      savedTheme = window.localStorage.getItem(storageKey);
+    } catch {}
+
+    const systemTheme = window.matchMedia?.('(prefers-color-scheme: light)').matches
+      ? 'light'
+      : 'dark';
+    const theme = themes.includes(savedTheme) ? savedTheme : systemTheme;
+
+    document.documentElement.setAttribute(attribute, theme);
+  })();
+`;
+
+function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={`${interVariable.variable} ${interDisplay.variable}`} suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <head>
-        <meta name="apple-mobile-web-app-title" content="MyWebSite" />
-
-        <link rel="manifest"          href="favicon/manifest.json" />
-        <link rel="icon"              href="favicon/favicon.ico"    type="image/x-icon"   sizes="48x48"   />
-        <link rel="icon"              href="favicon/icon.svg"       type="image/svg+xml"  sizes="any"     />
-        <link rel="icon"              href="favicon/icon.png"       type="image/png"      sizes="96x96"   />
-        <link rel="apple-touch-icon"  href="favicon/apple-icon.png" type="image/png"      sizes="180x180" />
-
-        {/* Persist user-selected theme; fallback to system preference */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                try {
-                  var saved = localStorage.getItem('app-theme');
-                  var theme = (saved === 'light' || saved === 'dark')
-                    ? saved
-                    : (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
-                  document.documentElement.setAttribute('data-theme', theme);
-                } catch (e) {
-                  var isLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
-                  document.documentElement.setAttribute('data-theme', isLight ? 'light' : 'dark');
-                }
-              })();
-            `,
+            __html: themeBootstrap
           }}
         />
       </head>
 
-      <body>
-        {children}
-      </body>
-
+      <body>{children}</body>
     </html>
   );
 }

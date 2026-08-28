@@ -4,16 +4,21 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=20.0.0"
+    "node": "26.8.1"
   },
-  "packageManager": "pnpm@11.21.0+sha512.521705bce689924eac72f5a3587122f362689ef6571e55ba80076fd637c11132ecffada26fad4ea79c485bfddbfd3d5a2a5b05805a77e893de71ec8a6cca3bb1",
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "version": "26.8.1",
+      "onFail": "download"
+    }
+  },
+  "packageManager": "pnpm@11.24.0+sha512.bd27e345e976dcb0be0b7a1228217b049a817e21b1f355c90dbe7dc46671895a8bc1e6d06c24554505ea93ea0b45f489a27ec1bfbc8de6a9659fca0f16fa0000",
   "devDependencies": {
-    "@types/node": "26.2.0",
+    "@types/node": "26.4.0",
     "@types/react": "19.2.18",
-    "@types/react-dom": "19.2.4",
+    "@types/react-dom": "19.2.5",
     "autoprefixer": "10.5.4",
-    "babel-plugin-react-compiler": "19.1.0-rc.3",
-    "del-cli": "7.0.0",
     "postcss": "8.5.26",
     "postcss-custom-media": "12.0.1",
     "postcss-import": "17.0.0",
@@ -27,11 +32,39 @@
     "react-dom": "19.2.8"
   },
   "scripts": {
-    "build": "NEXT_TELEMETRY_DISABLED=1 && pnpm noTel && next build",
+    "build": "NEXT_TELEMETRY_DISABLED=1 && pnpm noTel && next build && pnpm run copy:standalone-assets",
+    "build:debug": "NEXT_TELEMETRY_DISABLED=1 next build --debug-prerender && pnpm run copy:standalone-assets",
     "build:start": "next start",
     "noTel": "next telemetry disable",
-    "lint": "next lint",
-    "repack": "del -f .next node_modules package-lock.json pnpm-lock.yaml && pnpm install",
-    "start": "next dev --turbopack"
+    "prod:start": "node .next/standalone/server.js",
+    "start": "next dev",
+    "dev": "next dev",
+    "typegen": "next typegen",
+    "typecheck": "pnpm typegen && tsc --noEmit --incremental false -p tsconfig.json",
+    "lint:baseline": "node scripts/lint/dependency-baseline.mjs",
+    "lint:classes": "node tooling/code-style/no-class-syntax.mjs src scripts tooling next.config.ts postcss.config.js",
+    "lint:imports": "node tooling/code-style/typescript-import-layout.mjs",
+    "lint:objects": "node tooling/code-style/typescript-object-layout.mjs",
+    "lint:parameters": "node tooling/code-style/typescript-parameter-layout.mjs",
+    "lint:consts": "node tooling/code-style/typescript-const-layout.mjs",
+    "lint:css": "node tooling/code-style/css-formatting.mjs",
+    "lint:context-md": "node scripts/lint/context-md-prose-unwrap.mjs --check",
+    "lint:tooling": "pnpm --dir tooling/code-style lint",
+    "lint": "pnpm lint:classes && pnpm lint:imports && pnpm lint:objects && pnpm lint:parameters && pnpm lint:consts && pnpm lint:css && pnpm lint:context-md && pnpm lint:tooling",
+    "fmt:imports": "node tooling/code-style/typescript-import-layout.mjs --fix",
+    "fmt:objects": "node tooling/code-style/typescript-object-layout.mjs --fix",
+    "fmt:parameters": "node tooling/code-style/typescript-parameter-layout.mjs --fix",
+    "fmt:consts": "node tooling/code-style/typescript-const-layout.mjs --fix",
+    "fmt:css": "node tooling/code-style/css-formatting.mjs --fix",
+    "fmt:context-md": "node scripts/lint/context-md-prose-unwrap.mjs --fix",
+    "fmt:tooling": "pnpm --dir tooling/code-style fmt",
+    "fmt:file": "node tooling/code-style/fmt-file.mjs",
+    "fmt": "pnpm fmt:imports && pnpm fmt:objects && pnpm fmt:parameters && pnpm fmt:consts && pnpm fmt:css && pnpm fmt:context-md && pnpm fmt:tooling",
+    "test:code-style": "pnpm --dir tooling/code-style test",
+    "test:guidance": "node --test scripts/lint/*.test.mjs .cursor/hooks/*.test.mjs",
+    "test:tooling": "pnpm test:code-style && pnpm test:guidance",
+    "lint:guidance": "node scripts/lint/guidance.mjs",
+    "verify:core": "pnpm lint:baseline && pnpm lint && pnpm typecheck && pnpm test:tooling && pnpm build",
+    "verify": "pnpm lint:baseline && pnpm lint && pnpm typecheck && pnpm test:tooling && pnpm lint:guidance && pnpm build"
   }
 }

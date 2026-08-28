@@ -1,36 +1,31 @@
-import type { NextConfig } from 'next';
+import type { NextConfig }  from 'next';
 
 
 const nextConfig: NextConfig = {
-  cacheComponents: true,
-  reactCompiler: true,
-
-  devIndicators: {
+  cacheComponents : true,
+  poweredByHeader : false,
+  reactCompiler   : true,
+  typedRoutes     : true,
+  devIndicators   : {
     position: 'bottom-right'
   },
-
-  experimental: {
-    cssChunking: 'strict',
-    viewTransition: true,
-    turbopackFileSystemCacheForDev: true
+  experimental    : {
+    // rootParams      : true,
+    turbopackRustReactCompiler: true
   },
-
-  poweredByHeader: false,
-  reactMaxHeadersLength: 1000,
-
-  logging: {
-    fetches: {
-      fullUrl: true,
+  logging         : {
+    fetches         : {
+      fullUrl     : true,
       hmrRefreshes: true
     },
     incomingRequests: {
-      ignore: [/\favicon\.ico/]
+      ignore: [/\/favicon\.ico/]
     }
   },
-
-  typescript: {
-    ignoreBuildErrors: true
-  }
+  typescript      : {
+    ignoreBuildErrors: false
+  },
+  output          : 'standalone'
 };
 
 

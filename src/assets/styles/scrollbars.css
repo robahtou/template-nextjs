@@ -1,17 +1,21 @@
 @layer scrollbars {
   /* theme-aware scrollbars */
   *::-webkit-scrollbar {
-    width: 12px;
-    height: 12px;
+    width   : 12px;
+    height  : 12px;
   }
   *::-webkit-scrollbar-thumb {
-    background-color: color-mix(in oklch, var(--foreground) 25%, transparent);
-    border-radius:    var(--radius-12);
-    border:           3px solid transparent;
-    background-clip:  padding-box;
+    background-color  : color-mix(in oklch, var(--foreground) 25%, transparent);
+    border-radius     : var(--radius-12);
+    border            : 3px solid transparent;
+    background-clip   : padding-box;
   }
-  *::-webkit-scrollbar-track { background: transparent; }
-
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
   /* Firefox */
-  * { scrollbar-color: color-mix(in oklch, var(--foreground) 25%, transparent) transparent; scrollbar-width: thin; }
+  * {
+    scrollbar-color : color-mix(in oklch, var(--foreground) 25%, transparent) transparent;
+    scrollbar-width : thin;
+  }
 }

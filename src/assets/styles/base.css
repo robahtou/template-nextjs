@@ -1,40 +1,38 @@
 @layer base {
   /* Respect user default font size; do not shrink root */
-  html { font-size: 100%; }
+  html {
+    font-size: 100%;
+  }
 
-  *,
-  *::before,
-  *::after {
+  *, *::before, *::after {
     box-sizing: border-box;
   }
 
   * {
-    margin: 0;
-    padding: 0;
+    margin  : 0;
+    padding : 0;
   }
 
   body {
-    color: var(--text-primary);
-    background-color: var(--bg-color);
-    line-height: 1.5;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+    color                   : var(--text-primary);
+    background-color        : var(--bg-color);
+    line-height             : 1.5;
+    -webkit-font-smoothing  : antialiased;
+    -moz-osx-font-smoothing : grayscale;
   }
 
   img, picture, video, canvas, svg {
-    display: block;
-    max-width: 100%;
+    display   : block;
+    max-width : 100%;
   }
 
   input, button, textarea, select {
     font: inherit;
   }
 
-  a,
-  a:active,
-  a:visited {
-    text-decoration: none;
-    color: var(--link-color);
+  a, a:active, a:visited {
+    text-decoration : none;
+    color           : var(--link-color);
   }
 
   button {
@@ -42,10 +40,11 @@
   }
 
   fieldset {
-    padding: 0;
-    border: none;
-    border-width: 0;
+    padding       : 0;
+    border        : none;
+    border-width  : 0;
   }
+
   legend {
     padding: 0;
   }
@@ -53,25 +52,18 @@
   ul, ol, dd {
     list-style: none;
   }
-
-  /* TODO: modify this */
-  #root, #__next {
-    isolation: isolate;
-  }
-
   /* Accessible focus ring */
   :where(:focus-visible) {
-    outline: var(--border-2) solid color-mix(in oklch, var(--foreground) 60%, transparent);
-    outline-offset: 2px;
+    outline         : var(--border-2) solid color-mix(in oklch, var(--foreground) 60%, transparent);
+    outline-offset  : 2px;
   }
-
   /* Respect reduced motion preferences */
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
-      animation-duration: 0.01ms !important;
-      animation-iteration-count: 1 !important;
-      transition-duration: 0.01ms !important;
-      scroll-behavior: auto !important;
+      animation-duration        : 0.01ms !important;
+      animation-iteration-count : 1 !important;
+      transition-duration       : 0.01ms !important;
+      scroll-behavior           : auto !important;
     }
   }
 }

@@ -1,5 +1,5 @@
 import ThemeToggle from '@Components/ThemeToggle';
-import styles from './styles.module.css';
+import styles      from './styles.module.css';
 
 
 function Home() {
