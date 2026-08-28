@@ -166,8 +166,27 @@ Temporary Items
 z*.*
 z*
 
-# cursor
+# AI
 .cursorrules
 .cursorignore
 .cursorindexingignore
 .specstory
+
+# prompts
+# prompts/
+_*.md
+
+# Ignore all Claude-related dotfiles
+.claude*
+.claude/
+
+# Other
+# Ignore scripts/ children except scripts/lint (parent cannot be `scripts/` — negation would not apply).
+scripts/*
+!scripts/lint/
+!scripts/lint/**
+!scripts/tests/
+!scripts/tests/catalog-market-context.test.mjs
+src/redux
+_implementation_plans
+_next_six_months
