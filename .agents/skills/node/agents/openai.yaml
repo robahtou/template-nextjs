@@ -1,0 +1,4 @@
+interface:
+  display_name: "Node.js"
+  short_description: "Write robust project-scoped Node.js code"
+  default_prompt: "Use $node to implement this Node.js script safely."

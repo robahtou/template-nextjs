@@ -34,13 +34,14 @@ See the [adoption guide](docs/adoption/CONTEXT.md) for the complete handoff chec
 ## Commands
 
 - `pnpm dev` starts the development server.
-- `pnpm build` creates a portable production build.
-- `pnpm start` serves an existing production build.
+- `pnpm start` is the existing development-server alias.
+- `pnpm build` creates standalone output with telemetry disabled and copies its static assets.
+- `pnpm build:start` serves the generated standalone server.
 - `pnpm typegen` generates Next.js route and framework declarations.
 - `pnpm typecheck` generates framework declarations, then runs the non-incremental application typecheck.
 - `pnpm lint` checks repository policy, layout, formatting, CSS, and context prose. It is not a claim of ESLint-equivalent semantic coverage.
 - `pnpm fmt` fixes supported repository formatting and context prose.
-- `pnpm fmt:file --file <path>` applies the generic EOP-compatible formatter pipeline to one supported file.
+- `pnpm fmt:file --file <path>` applies the template-owned formatter pipeline to one supported file.
 - `pnpm test:tooling` runs the focused code-style and guidance tooling tests.
 - `pnpm verify:core` checks the dependency baseline, lint, types, tooling tests, and production build.
 - `pnpm verify` runs the complete non-fixing validation, including canonical-guidance checks and the production build.
@@ -55,6 +56,12 @@ See the [adoption guide](docs/adoption/CONTEXT.md) for the complete handoff chec
 - [`src/assets`](src/assets/CONTEXT.md) owns build-imported static resources, including the [`src/assets/styles`](src/assets/styles/CONTEXT.md) global style system.
 
 Route-specific implementation stays close to its route. A downstream project may introduce `src/features/<domain>` only when a real domain has enough UI and logic to need that boundary; do not create empty architecture.
+
+## Coding AI capabilities
+
+Repository-scoped skills are mirrored under [`.agents/skills`](.agents/skills) and [`.cursor/skills`](.cursor/skills) so Codex-compatible and Cursor environments expose the same capability names, instructions, and references. Codex-specific `agents/openai.yaml` metadata remains only under `.agents`; Cursor rules, commands, and hooks remain host-specific integrations. Durable project policy stays in this README, the `CONTEXT.md` hierarchy, and executable checks rather than in one host's integration files.
+
+`pnpm lint:guidance` rejects a skill that exists in only one environment, a missing mirrored resource, differing shared content, an invalid skill entrypoint, or an unlisted file in either guidance tree.
 
 ## Guidance map
 

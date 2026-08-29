@@ -1,0 +1,21 @@
+default_permissions = "template-safe"
+
+[permissions.template-safe]
+description = "Allow this Next.js template workspace to be edited while denying local secrets and private key material."
+extends = ":workspace"
+
+[permissions.template-safe.filesystem]
+glob_scan_max_depth = 10
+
+[permissions.template-safe.filesystem.":workspace_roots"]
+"**/.env" = "deny"
+"**/.env.local" = "deny"
+"**/.env.development" = "deny"
+"**/.env.test" = "deny"
+"**/.env.production" = "deny"
+"**/.env.*.local" = "deny"
+"**/.env.*.secrets" = "deny"
+"**/*.pem" = "deny"
+"**/*.key" = "deny"
+"**/*.p12" = "deny"
+"**/*.pfx" = "deny"

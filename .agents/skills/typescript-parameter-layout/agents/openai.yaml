@@ -1,0 +1,4 @@
+interface:
+  display_name: "TypeScript Parameter Layout"
+  short_description: "Apply the repository parameter layout"
+  default_prompt: "Use $typescript-parameter-layout to check and format these parameters."

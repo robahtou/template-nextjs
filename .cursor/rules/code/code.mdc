@@ -1,0 +1,17 @@
+---
+description: "Core TypeScript and JavaScript coding standards"
+globs: "**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}"
+alwaysApply: false
+---
+# Code Standards
+
+- Prefer small functions, explicit data flow, and composition. Repository policy rejects class syntax.
+- Prefer `async` functions and `await` existing promise-returning APIs. Use `new Promise` only to adapt a callback or event API with no promise alternative, and document why it is necessary.
+- Preserve strict typing; do not use `any`, unsafe assertions, or ignored errors to bypass a design problem.
+- Validate untrusted data at its boundary and represent expected failure states deliberately.
+- Keep browser-only, server-only, and shared modules separated so imports cannot cross runtime boundaries accidentally.
+- Use `import type` for type-only dependencies and follow the repository layout formatters.
+- Avoid speculative abstractions and empty architecture folders; extract only when a concrete second use or ownership boundary exists.
+- Run the narrow relevant checks, then `pnpm typecheck` for material TypeScript changes.
+
+Do not add ESLint or Prettier. `pnpm lint` checks repository policy and layout; `pnpm fmt` applies supported fixes.

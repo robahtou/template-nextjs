@@ -1,0 +1,7 @@
+interface:
+  display_name: "Next.js Turbopack Cache Debugging"
+  short_description: "Debug Next.js Turbopack and cache behavior"
+  default_prompt: "Use $nextjs-turbopack-cachecomponents-debugging to isolate this Next.js development or cache issue."
+
+policy:
+  allow_implicit_invocation: true

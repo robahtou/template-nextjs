@@ -1,0 +1,20 @@
+---
+description: "Recording contract for reusable Next.js lessons"
+globs: "docs/nextjs/{diagnostics,lessons}/**/CONTEXT.md"
+alwaysApply: false
+---
+# Next.js Lessons
+
+Record a lesson only after evidence confirms a reusable framework behavior.
+
+Include:
+
+1. Symptom and user impact.
+2. Affected pinned versions and configuration.
+3. Minimal reproduction or diagnostic evidence.
+4. Root cause, clearly separated from discarded hypotheses.
+5. Durable resolution and why it works.
+6. Verification commands and expected observations.
+7. Conditions for revisiting or retiring the lesson.
+
+Keep product incidents, secrets, transient logs, and unsupported speculation out of reusable guidance. Prefer official documentation links and local file references over copied prose.

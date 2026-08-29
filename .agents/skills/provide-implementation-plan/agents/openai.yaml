@@ -1,0 +1,7 @@
+interface:
+  display_name: "Implementation Plan"
+  short_description: "Create an evidence-based implementation plan"
+  default_prompt: "Use $provide-implementation-plan to plan this change without editing files."
+
+policy:
+  allow_implicit_invocation: false

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Greenfield"
+  short_description: "Prefer clean greenfield replacement decisions"
+  default_prompt: "Use $greenfield to evaluate this change without preserving obsolete behavior."

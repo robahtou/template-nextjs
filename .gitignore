@@ -55,9 +55,6 @@ web_modules/
 # Optional npm cache directory
 .npm
 
-# Optional eslint cache
-.eslintcache
-
 # Microbundle cache
 .rpt2_cache/
 .rts2_cache_cjs/
@@ -172,21 +169,6 @@ z*
 .cursorindexingignore
 .specstory
 
-# prompts
-# prompts/
-_*.md
-
-# Ignore all Claude-related dotfiles
-.claude*
-.claude/
-
-# Other
-# Ignore scripts/ children except scripts/lint (parent cannot be `scripts/` — negation would not apply).
-scripts/*
-!scripts/lint/
-!scripts/lint/**
-!scripts/tests/
-!scripts/tests/catalog-market-context.test.mjs
-src/redux
+# Local planning
 _implementation_plans
 _next_six_months

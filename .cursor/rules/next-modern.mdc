@@ -1,0 +1,17 @@
+---
+description: "Modern Next.js App Router implementation conventions"
+globs: "{src/app/**/*.{js,jsx,ts,tsx},next.config.{js,mjs,ts}}"
+alwaysApply: false
+---
+# Modern Next.js
+
+- Use the App Router and current APIs supported by the pinned `next` version.
+- Keep components server-rendered by default. Add `'use client'` only for browser APIs, local interaction, or client state, and keep that boundary narrow.
+- Await request-bound APIs such as `params`, `searchParams`, `cookies()`, `headers()`, and `draftMode()` before reading their values.
+- Perform initial reads on the server. Use Server Actions for UI-originated mutations and Route Handlers for genuine HTTP consumers.
+- Use framework metadata, image, font, error, loading, and not-found conventions instead of hand-built equivalents.
+- Use `proxy.ts` only for request interception; it is not an authorization boundary.
+- Treat `next.config.ts` as the source of truth for Cache Components, React Compiler, and Turbopack behavior.
+- Do not add compatibility shims for obsolete router or request API forms.
+
+Verify framework-sensitive changes with `pnpm typecheck` and `pnpm build`.

@@ -1,0 +1,7 @@
+interface:
+  display_name: "Write Session Commit"
+  short_description: "Draft a commit for this chat session’s changes"
+  default_prompt: "Use $write-session-commit to draft a commit for changes made in this chat without any authorship, co-authorship, AI-assistance, tool-credit, or agent-attribution text."
+
+policy:
+  allow_implicit_invocation: false

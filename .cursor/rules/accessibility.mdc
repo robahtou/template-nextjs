@@ -1,0 +1,16 @@
+---
+description: "Accessible React UI acceptance criteria"
+globs: "**/*.{css,jsx,tsx}"
+alwaysApply: false
+---
+# Accessibility
+
+- Start with semantic HTML and native controls; add ARIA only when native semantics cannot express the behavior.
+- Give controls stable accessible names and useful state or error descriptions.
+- Support keyboard, pointer, and touch interaction without nested interactive elements.
+- Keep focus visible, move it intentionally for dialogs and route-level errors, and restore it when transient UI closes.
+- Preserve heading order, landmarks, label-control relationships, and meaningful alternative text.
+- Allow text to resize without clipping; avoid fixed heights for text-bearing controls.
+- Respect reduced-motion and forced-color preferences, and do not use color alone to communicate state.
+- Use live regions sparingly and announce only meaningful asynchronous changes.
+- Test tab order, activation keys, zoom or larger default text, and at least one accessibility tree inspection.

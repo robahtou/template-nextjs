@@ -74,6 +74,13 @@ test('ignores class text in comments, strings, and property names', () => {
   assert.deepEqual(findings, []);
 });
 
+test('fails clearly when the compatibility parser rejects source syntax', () => {
+  assert.throws(
+    () => findClassSyntax('const broken = {', 'broken.ts'),
+    /broken\.ts:1:17 is not parseable by the TypeScript 6 compatibility API/u
+  );
+});
+
 test('CLI scans every supported module extension', async (testContext) => {
   const tempDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'no-class-syntax-extensions-'));
   testContext.after(() => fs.rm(tempDirectory, { recursive: true, force: true }));

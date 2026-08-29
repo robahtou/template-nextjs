@@ -1,0 +1,15 @@
+---
+description: "Concise project documentation prose conventions"
+globs: "{README.md,**/CONTEXT.md}"
+alwaysApply: false
+---
+# Prose
+
+- Lead with the reader's task or the documented contract.
+- Use short sections, concrete verbs, and lists only when they improve scanning.
+- Prefer repository-relative links and backticked paths, commands, identifiers, and configuration keys.
+- Do not hard-wrap prose or pad tables by hand.
+- State current behavior directly; label examples, options, and future work.
+- Avoid duplicated facts, marketing language, unexplained acronyms, and stale version snapshots.
+- Keep code samples minimal and runnable against the documented project.
+- Preserve established terminology: App Router, Server Component, Client Component, Server Action, Route Handler, Cache Components, and React Compiler.

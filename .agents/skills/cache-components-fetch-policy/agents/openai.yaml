@@ -1,0 +1,7 @@
+interface:
+  display_name: "Cache Components Fetch Policy"
+  short_description: "Set safe Next.js Cache Components policy"
+  default_prompt: "Use $cache-components-fetch-policy to choose safe cache and invalidation behavior for this change."
+
+policy:
+  allow_implicit_invocation: true

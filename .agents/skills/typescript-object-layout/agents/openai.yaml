@@ -1,0 +1,4 @@
+interface:
+  display_name: "TypeScript Object Layout"
+  short_description: "Apply the repository object layout"
+  default_prompt: "Use $typescript-object-layout to check and format these object shapes."

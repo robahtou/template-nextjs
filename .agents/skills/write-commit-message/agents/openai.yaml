@@ -1,0 +1,7 @@
+interface:
+  display_name: "Write Commit Message"
+  short_description: "Draft a commit message and staging command"
+  default_prompt: "Use $write-commit-message to draft a commit message for the current changes without any authorship, co-authorship, AI-assistance, tool-credit, or agent-attribution text."
+
+policy:
+  allow_implicit_invocation: false

@@ -1,0 +1,7 @@
+interface:
+  display_name: "Next.js Audit"
+  short_description: "Run an evidence-based read-only Next.js audit"
+  default_prompt: "Use $nextjs-audit to audit this Next.js application without editing files."
+
+policy:
+  allow_implicit_invocation: true

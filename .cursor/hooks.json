@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "hooks": {
+    "afterFileEdit": [
+      {
+        "type": "command",
+        "command": ".cursor/hooks/run-fmt-file.mjs",
+        "timeout": 30,
+        "failClosed": false
+      }
+    ]
+  }
+}

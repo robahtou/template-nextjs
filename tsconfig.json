@@ -22,7 +22,6 @@
         "name": "next"
       }
     ],
-    "baseUrl": ".",
     "paths": {
       "@/*": [
         "./src/*"
@@ -38,12 +37,6 @@
       ],
       "@Lib": [
         "./src/lib"
-      ],
-      "@Pages/*": [
-        "./src/pages/*"
-      ],
-      "@Pages": [
-        "./src/pages"
       ],
       "@Styles/*": [
         "./src/assets/styles/*"
@@ -67,6 +60,8 @@
     ".next/dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    ".agents/**",
+    ".cursor/**"
   ]
 }

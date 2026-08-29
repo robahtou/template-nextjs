@@ -1,0 +1,17 @@
+---
+description: "Authorization rules for protected Next.js routes and mutations"
+globs: "src/app/**/*.{js,jsx,ts,tsx}"
+alwaysApply: false
+---
+# Protected Route Security
+
+- Classify each route as public, authenticated, anonymous-only, or intentionally unreachable.
+- Enforce authentication and authorization on the server at every protected read, mutation, and HTTP boundary.
+- Treat layouts, redirects, hidden controls, middleware/proxy checks, and Client Component guards as user experience only.
+- Validate and normalize all boundary input before use; authorize the specific resource after identity is known.
+- Return the least information needed. Do not reveal resource existence, secrets, internal errors, or authorization policy through unsafe failures.
+- Recheck authorization inside Server Actions and Route Handlers even when the invoking page was protected.
+- Keep privileged credentials server-only and prevent imports from reaching client bundles.
+- Test direct navigation and direct action/endpoint invocation for allowed and denied identities.
+
+Do not invent an authentication provider or role model; follow the downstream project's documented policy.

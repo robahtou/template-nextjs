@@ -1,0 +1,15 @@
+---
+description: "pnpm dependency and workspace conventions"
+globs: "{package.json,pnpm-lock.yaml,pnpm-workspace.yaml,**/package.json}"
+alwaysApply: false
+---
+# pnpm
+
+- Use the exact package manager declared by `package.json`; do not invoke Corepack or another package manager.
+- Run commands from the workspace root unless an existing root script explicitly targets a workspace package.
+- Add, update, or remove dependencies with pnpm so manifests and `pnpm-lock.yaml` change together.
+- Keep runtime and framework versions exact where the template contract pins them.
+- Keep release-age exceptions limited to explicitly frozen young packages. Maintain the selected Next.js package and its required `@next/*` entries as one atomic set.
+- Do not hand-edit lockfile resolution data or copy lockfile fragments between projects.
+- Use `pnpm install --frozen-lockfile` to prove reproducibility after dependency changes.
+- Prefer existing root scripts over direct tool invocations so local and CI behavior match.

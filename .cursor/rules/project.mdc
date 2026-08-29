@@ -1,0 +1,15 @@
+---
+description: "Project sources of truth and implementation boundaries"
+alwaysApply: true
+---
+# Project
+
+- Read `README.md` and the nearest `CONTEXT.md` before changing a documented boundary.
+- Treat `package.json`, `pnpm-workspace.yaml`, `pnpm-lock.yaml`, `next.config.ts`, and `tsconfig.json` as executable sources of truth.
+- Preserve unrelated worktree changes and keep edits within the requested scope.
+- This is a greenfield template: replace obsolete behavior directly instead of adding migrations, aliases, compatibility wrappers, or version-suffixed APIs.
+- `src/app` owns routes and route entries; route-private UI belongs in `_components`.
+- `src/components` owns cross-route UI, `src/lib` owns services and integrations, and `src/utils` owns small platform-neutral helpers.
+- Create `src/features/<domain>` only when a real domain boundary justifies it.
+- Do not add optional providers, databases, state libraries, UI frameworks, deployment vendors, or empty architecture folders speculatively.
+- Verify changes in proportion to risk and report checks that actually ran.

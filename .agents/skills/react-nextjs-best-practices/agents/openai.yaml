@@ -1,0 +1,7 @@
+interface:
+  display_name: "React and Next.js Best Practices"
+  short_description: "Apply React and Next.js performance practices"
+  default_prompt: "Use $react-nextjs-best-practices to review this React or Next.js performance change."
+
+policy:
+  allow_implicit_invocation: true

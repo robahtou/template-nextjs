@@ -1,0 +1,15 @@
+---
+description: "CSS Module and global style ownership boundaries"
+globs: "**/*.{css,jsx,tsx}"
+alwaysApply: false
+---
+# Styling Architecture
+
+- Colocate route and component styles in `styles.module.css`; access module classes with bracket notation.
+- Put cross-application tokens and cascade behavior in `src/assets/styles`.
+- Keep `index.css` as the only global import orchestrator and preserve its declared layer order.
+- Store primitive size, motion, and elevation values in `scale.css`; theme primitives in `themes.css`; derived role tokens in `semantics.css`.
+- Keep each global slice inside its named layer. `mediaQueries.css` owns shared custom-media definitions and is intentionally unlayered.
+- Prefer semantic tokens in components so theme changes do not require component rewrites.
+- Add a global utility only when it is genuinely reusable and cannot remain local.
+- Replacing CSS Modules is an explicit architecture change requiring dependencies, configuration, implementation, and guidance updates.

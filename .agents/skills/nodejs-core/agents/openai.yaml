@@ -1,0 +1,4 @@
+interface:
+  display_name: "Node.js Runtime Internals"
+  short_description: "Diagnose measured V8 and libuv bottlenecks"
+  default_prompt: "Use $nodejs-core to diagnose this measured Node.js runtime bottleneck."

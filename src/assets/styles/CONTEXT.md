@@ -1,20 +1,16 @@
-# Styles System Context
+# Global Style System Context
 
-## Purpose
+## Baseline
 
-This directory contains the app-wide style system. It is intentionally organized by **responsibility** (reset, tokens, semantics, typography, utilities, etc.) so each file has a clear ownership boundary.
+Template-owned route and component styles use colocated `styles.module.css` files. This directory owns only shared tokens, resets, global element behavior, and deliberately global utilities.
 
-## Single Entrypoint
+CSS Modules are the installed template baseline. A downstream project may replace that architecture only through an explicit dependency, configuration, implementation, and guidance change.
 
-Global styles are loaded through one file:
+## Single entrypoint
 
-- `src/assets/styles/index.css`
+`index.css` declares layer order and imports every global style slice. The root layout imports this entrypoint once. Leaf global files must not import one another or be imported directly by components.
 
-`index.css` is the only place that should orchestrate global style imports and cascade-layer order.
-
-## Layer Contract
-
-The cascade contract is defined in `index.css`:
+The low-to-high precedence order is:
 
 1. `normalize`
 2. `base`
@@ -31,138 +27,43 @@ The cascade contract is defined in `index.css`:
 13. `print`
 14. `utilities`
 
-Higher numbers win in conflicts. Keep this order stable unless there is a deliberate architecture change.
+Every declaration in a global slice belongs inside that file's named layer. `mediaQueries.css` is the one exception: it defines shared `@custom-media` aliases and has no cascade declarations.
 
-`mediaQueries.css` is not a layer. It defines `@custom-media` breakpoints that other files may use.
+## File ownership
 
-## When To Use Which File
+- `index.css`: layer declaration and ordered imports only.
+- `mediaQueries.css`: mobile-first custom media aliases.
+- `normalize.css`: browser normalization without product design.
+- `base.css`: global document and element defaults.
+- `scale.css`: primitive size, spacing, border, radius, motion, elevation, and z-index tokens.
+- `themes.css`: light/dark color primitives and theme selection.
+- `semantics.css`: role tokens derived from theme primitives, such as text, surface, status, and border roles.
+- `typography.css`: neutral `--font-sans` and `--font-display` system stacks, type tokens, and global text hierarchy.
+- `motion.css`: shared keyframes and motion helpers; respect reduced-motion preferences.
+- `layouts.css`: genuinely global layout primitives and container-query scaffolding.
+- `forms.css`: global native control defaults.
+- `a11y.css`: skip-link and assistive helpers; never use helpers to hide focus.
+- `scrollbars.css`: cross-browser scrollbar behavior.
+- `prose.css`: opt-in long-form reading defaults.
+- `print.css`: print-only behavior.
+- `utilities.css`: small, stable, globally reusable utilities that do not justify a component API.
 
-- `normalize.css`: Browser normalization only; no design decisions.
-- `base.css`: Global element defaults (`html`, `body`, links, core behavior).
-- `scale.css`: Primitive design tokens (size, spacing, radii, borders, shadows, z-index, durations).
-- `themes.css`: Theme primitives and dark/light mode switching.
-- `semantics.css`: Semantic tokens derived from theme primitives (roles like success/warning/surfaces).
-- `typography.css`: Font families, heading/body typographic defaults, text rhythm.
-- `mediaQueries.css`: Shared breakpoint aliases via `@custom-media`.
-- `layouts.css`: Global layout primitives and container-query scaffolding.
-- `forms.css`: Baseline styles for form controls and button primitives.
-- `a11y.css`: Accessibility helpers (skip links, assistive patterns).
-- `scrollbars.css`: Cross-browser scrollbar styling.
-- `prose.css`: Readability defaults for long-form content containers.
-- `print.css`: Print-only behavior and cleanup.
-- `motion.css`: Keyframes and reusable motion utility classes.
-- `utilities.css`: Small, generic utility classes for one-off composition.
-- `index.css`: Layer contract + ordered imports for all global style slices.
+## Token boundaries
 
-## Ownership Rules
+Components consume semantic tokens before raw theme primitives. Keep non-color constants in `scale.css`, theme-selectable color primitives in `themes.css`, and meaning-bearing derived roles in `semantics.css`. Do not create parallel token files unless a real new ownership concern exists.
 
-1. One file = one concern.
-2. Keep token definition files free of element/class styling.
-3. Keep element/class styling files free of token definition.
-4. If a new concern appears, add a dedicated file and register it in `index.css`.
-5. Avoid hidden imports between leaf files; `index.css` should remain the orchestration point.
+The default typography uses system fonts and requires no local binaries, network fetch, preload, or font license. Adding a product font requires the real licensed assets, fallback behavior, and an update to the [asset context](../CONTEXT.md).
 
-## Improvement Examples: Avoid Mixed Responsibilities
+## Component styling
 
-### Example 1: Typography tokens mixed with element rules
+- Put a component's selectors beside it in `styles.module.css`.
+- Use semantic class names and shared tokens; avoid moving one-off component rules into global utilities.
+- Keep responsive behavior mobile-first and use shared custom media when the breakpoint is project-wide.
+- Preserve visible focus, sufficient contrast, touch target size, reduced motion, text zoom, and forced-color behavior.
+- Avoid `!important`; if a cascade conflict requires it, fix ownership or layer placement first.
 
-Before (mixed in one place):
+See the [shared component context](../../components/CONTEXT.md) for the canonical CSS Modules example.
 
-```css
-/* typography.css */
-:root {
-  --heading-display-size: clamp(2rem, 3vw, 4rem);
-}
+## Maintenance
 
-h1 {
-  font-size: var(--heading-display-size);
-}
-```
-
-After (split by concern):
-
-```css
-/* typography.tokens.css */
-:root {
-  --heading-display-size: clamp(2rem, 3vw, 4rem);
-}
-```
-
-```css
-/* typography.css */
-h1 {
-  font-size: var(--heading-display-size);
-}
-```
-
-### Example 2: Theme primitives mixed with component behavior
-
-Before (theme + component rules together):
-
-```css
-/* themes.css */
-:root {
-  --background: #0a0a0a;
-  --foreground: #ededed;
-}
-
-.card {
-  background: var(--background);
-  border: 1px solid color-mix(in oklch, var(--foreground) 20%, transparent);
-}
-```
-
-After (theme primitives remain in `themes.css`, component behavior moves):
-
-```css
-/* themes.css */
-:root {
-  --background: #0a0a0a;
-  --foreground: #ededed;
-}
-```
-
-```css
-/* utilities.css or component styles module */
-.card {
-  background: var(--background);
-  border: 1px solid color-mix(in oklch, var(--foreground) 20%, transparent);
-}
-```
-
-### Example 3: Form tokens mixed with control rules
-
-Before (definitions + usage in one file):
-
-```css
-/* forms.css */
-:root {
-  --form-control-height: 2.5rem;
-}
-
-input,
-select,
-textarea {
-  min-height: var(--form-control-height);
-}
-```
-
-After (token in `scale.css`, usage in `forms.css`):
-
-```css
-/* scale.css */
-:root {
-  --form-control-height: 2.5rem;
-}
-```
-
-```css
-/* forms.css */
-input,
-select,
-textarea {
-  min-height: var(--form-control-height);
-}
-```
-
-If you introduce a new split file (for example, `typography.tokens.css`), add it to `index.css` and place it in the correct layer/ordering slot.
+Change layer order only as an explicit style-architecture decision. When adding or removing a global slice, update `index.css` and this inventory together. Run `pnpm lint:css` for a check, `pnpm fmt` for intentional fixes, and `pnpm verify` before handoff.

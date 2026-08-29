@@ -1,0 +1,7 @@
+interface:
+  display_name: "Five-Part Implementation Plan"
+  short_description: "Plan a change in five implementation-ready parts"
+  default_prompt: "Use $provide-five-part-implementation-plan to structure a five-part plan for this change."
+
+policy:
+  allow_implicit_invocation: false

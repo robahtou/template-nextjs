@@ -1,0 +1,4 @@
+interface:
+  display_name: "TypeScript Import Layout"
+  short_description: "Apply the repository import layout"
+  default_prompt: "Use $typescript-import-layout to check and format these imports."

@@ -1,51 +1,31 @@
-# Assets Directory Context
+# Imported Assets Context
 
-## Purpose
+## Ownership
 
-`src/assets` is for static, non-executable resources that are imported by the app build/runtime.
+`src/assets` owns static, non-executable resources imported by application source and processed by the build. React components, services, hooks, and utility functions do not belong here.
 
-Keep business logic out of this directory. Do not place React components, hooks, services, or utility functions here.
+The baseline asset tree contains the [`styles`](styles/CONTEXT.md) system. Add another asset folder only when shipped source imports real product-owned files from it.
 
-## Current Structure
+## Imported assets versus public files
 
-```text
-src/assets/
-├─ fonts/
-│  ├─ *.woff2         # local font binaries
-│  └─ font-info.txt   # delivery/cache guidance for font files
-└─ styles/
-   ├─ index.css       # single global styles entrypoint
-   ├─ *.css           # layered style slices (normalize, base, themes, etc.)
-   └─ CONTEXT.md      # style system contract and ownership rules
-```
+- Put an asset under `src/assets` when source code imports it and the bundler should fingerprint or process it.
+- Put a file under `public/` when consumers require a stable URL that bypasses module imports.
+- Prefer current App Router file-based metadata for icons, social images, and manifests rather than manual `<head>` links.
 
-## Contracts
+Do not add placeholder binaries, icons, favicons, manifests, or brand files to advertise an optional capability. A web manifest is a product decision with real icons, names, colors, start behavior, and installability testing.
 
-### Fonts
+## Font policy
 
-- Store local font binaries in `src/assets/fonts`.
-- Register fonts in `src/lib/fonts.ts` via `next/font/local`.
-- Prefer `woff2` for local web fonts.
-- Keep `font-info.txt` current when delivery/caching guidance changes.
+The template uses system-font stacks defined by the [global style system](styles/CONTEXT.md). This avoids network downloads, missing local files, and undeclared font licenses.
 
-### Styles
+If a downstream product adopts local fonts, add the licensed binaries and their source integration in the same change. Document family, format, available styles and weights, fallback stack, preload/subsetting decision, attribution, and delivery expectations. Remove unused files rather than retaining speculative fallbacks.
 
-- Import global styles through one file only: `@Styles/index.css`.
-- Keep cascade-layer order and global import orchestration in `src/assets/styles/index.css`.
-- Keep style-file intent and ownership in `src/assets/styles/CONTEXT.md`.
-- Avoid importing leaf global style files directly from app entrypoints.
+## Change checklist
 
-## Decision Guide
+1. Confirm the asset is required and that its license permits the intended delivery.
+2. Choose imported or stable-URL ownership based on how code consumes it.
+3. Add accessible text alternatives or decorative treatment at each usage site.
+4. Check output size, caching, and responsive behavior where relevant.
+5. Update this context only if asset ownership or policy changes.
 
-- Use `src/assets` when an asset is imported into source code (for example, fonts and global styles).
-- Use `public/` when a file should be URL-addressable at a fixed path without an import (for example, favicon files and manifest files).
-
-## Change Checklist
-
-1. Place the asset in the correct folder (`fonts` or `styles`).
-2. Wire it in the corresponding integration point:
-   - Fonts: `src/lib/fonts.ts`
-   - Styles: `src/assets/styles/index.css`
-3. Update docs if the contract or structure changes:
-   - `src/assets/CONTEXT.md`
-   - `src/assets/styles/CONTEXT.md` (if style-specific behavior changed)
+See the [adoption context](../../docs/adoption/CONTEXT.md) for product identity and PWA decisions and the [App Router context](../app/CONTEXT.md) for metadata ownership.

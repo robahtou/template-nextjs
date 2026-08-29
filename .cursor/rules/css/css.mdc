@@ -1,0 +1,17 @@
+---
+description: "CSS authoring and formatting conventions"
+globs: "**/*.css"
+alwaysApply: false
+---
+# CSS
+
+- Use CSS Modules named `styles.module.css` for component and route styles.
+- Keep global tokens and shared cascade concerns under `src/assets/styles`; register global slices through `index.css`.
+- Keep declarations inside the slice's named layer, except shared custom-media definitions.
+- Use lowercase hex values and existing tokens before adding raw values.
+- Use `rem` for font sizes and breakpoints, unitless line height, and `px` for hairlines or fixed visual strokes.
+- Prefer flexible dimensions and `min-height` where text can grow.
+- Put media and container queries after the base rules, ordered from narrower to wider conditions.
+- Run `pnpm lint:css`; use `pnpm fmt:css` for repository-owned fixes.
+
+CSS Modules are the installed styling architecture. Do not add another styling system incidentally.

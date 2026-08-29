@@ -1,14 +1,23 @@
-import assert             from 'node:assert/strict';
-import { spawnSync }      from 'node:child_process';
-import fs                 from 'node:fs/promises';
-import os                 from 'node:os';
-import path               from 'node:path';
-import process            from 'node:process';
-import test               from 'node:test';
-import { fileURLToPath }  from 'node:url';
+import assert               from 'node:assert/strict';
+import { spawnSync }        from 'node:child_process';
+import fs                   from 'node:fs/promises';
+import os                   from 'node:os';
+import path                 from 'node:path';
+import process              from 'node:process';
+import test                 from 'node:test';
+import { fileURLToPath }    from 'node:url';
+
+import { formatSourceText } from './typescript-import-layout.mjs';
 
 
 const repoRoot = fileURLToPath(new URL('../../', import.meta.url));
+
+test('fails clearly when source is not parseable by the compatibility API', () => {
+  assert.throws(
+    () => formatSourceText('import {', 'broken.ts', []),
+    /not parseable by the TypeScript 6 compatibility API/u
+  );
+});
 
 test('uses one space after the longest import binding when there are exactly two imports', async (testContext) => {
   const tempDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'typescript-import-layout-'));
@@ -65,7 +74,7 @@ test('anchors a lone wrapped import on its longest stacked specifier line', asyn
 
   const fixturePath = path.join(tempDirectory, 'lone-wrapped-import.ts');
   const input       = [
-    'import { ProblemDetailsSchema, TabExecutionHistoryResponseSchema, TabExecutionParamsSchema } from \'@eop/resource-api-contracts/tab-executions\';',
+    'import { ProblemDetailsSchema, TabExecutionHistoryResponseSchema, TabExecutionParamsSchema } from \'@example/resource-api-contracts/tab-executions\';',
     '',
     'void ProblemDetailsSchema;',
     'void TabExecutionHistoryResponseSchema;',
@@ -79,7 +88,7 @@ test('anchors a lone wrapped import on its longest stacked specifier line', asyn
     '  ProblemDetailsSchema,',
     '  TabExecutionHistoryResponseSchema,',
     '  TabExecutionParamsSchema',
-    `${'}'.padEnd(38)}from '@eop/resource-api-contracts/tab-executions';`,
+    `${'}'.padEnd(38)}from '@example/resource-api-contracts/tab-executions';`,
     '',
     '',
     'void ProblemDetailsSchema;',
@@ -177,7 +186,7 @@ test('anchors a lone wrapped named re-export on its longest stacked specifier li
 
   const fixturePath     = path.join(tempDirectory, 'lone-wrapped-re-export.ts');
   const input           = [
-    'export { ProblemDetailsSchema, TabExecutionHistoryResponseSchema, TabExecutionParamsSchema } from \'@eop/resource-api-contracts/tab-executions\';',
+    'export { ProblemDetailsSchema, TabExecutionHistoryResponseSchema, TabExecutionParamsSchema } from \'@example/resource-api-contracts/tab-executions\';',
     ''
   ].join('\n');
   const expectedOutput  = [
@@ -185,7 +194,7 @@ test('anchors a lone wrapped named re-export on its longest stacked specifier li
     '  ProblemDetailsSchema,',
     '  TabExecutionHistoryResponseSchema,',
     '  TabExecutionParamsSchema',
-    `${'}'.padEnd(38)}from '@eop/resource-api-contracts/tab-executions';`,
+    `${'}'.padEnd(38)}from '@example/resource-api-contracts/tab-executions';`,
     ''
   ].join('\n');
 
@@ -265,7 +274,7 @@ test('formats imports after a use client directive', async (testContext) => {
   const fixturePath     = path.join(tempDirectory, 'directive-imports.tsx');
   const input           = [
     '\'use client\';import type { ChangeEvent }        from \'react\';',
-    'import type { AppLocale }          from \'@I18n/routing\';',
+    'import type { AppLocale }          from \'@App/localization/routing\';',
     '',
     'import { useLocale, useTranslations } from \'next-intl\';',
     'import { useSearchParams }            from \'next/navigation\';',
@@ -285,7 +294,7 @@ test('formats imports after a use client directive', async (testContext) => {
     '\'use client\';',
     '',
     'import type { ChangeEvent }           from \'react\';',
-    'import type { AppLocale }             from \'@I18n/routing\';',
+    'import type { AppLocale }             from \'@App/localization/routing\';',
     '',
     'import { useLocale, useTranslations } from \'next-intl\';',
     'import { useSearchParams }            from \'next/navigation\';',
@@ -336,15 +345,15 @@ test('preserves blank lines between regular import subgroups', async (testContex
     '\'use client\';',
     '',
     'import type { ChangeEvent } from \'react\';',
-    'import type { AppLocale } from \'@I18n/routing\';',
+    'import type { AppLocale } from \'@App/localization/routing\';',
     '',
     'import { useLocale, useTranslations } from \'next-intl\';',
     'import { useSearchParams } from \'next/navigation\';',
     'import { useTransition } from \'react\';',
     '',
-    'import { Box, CircularProgress, MenuItem, TextField } from \'@mui/material\';',
-    'import { usePathname, useRouter } from \'@I18n/navigation\';',
-    'import { localeValues } from \'@I18n/routing\';',
+    'import { Box, CircularProgress, MenuItem, TextField } from \'@example/ui\';',
+    'import { usePathname, useRouter } from \'@App/localization/navigation\';',
+    'import { localeValues } from \'@App/localization/routing\';',
     '',
     'import styles from \'./styles.module.css\';',
     '',
@@ -370,15 +379,15 @@ test('preserves blank lines between regular import subgroups', async (testContex
     '\'use client\';',
     '',
     'import type { ChangeEvent }                           from \'react\';',
-    'import type { AppLocale }                             from \'@I18n/routing\';',
+    'import type { AppLocale }                             from \'@App/localization/routing\';',
     '',
     'import { useLocale, useTranslations }                 from \'next-intl\';',
     'import { useSearchParams }                            from \'next/navigation\';',
     'import { useTransition }                              from \'react\';',
     '',
-    'import { Box, CircularProgress, MenuItem, TextField } from \'@mui/material\';',
-    'import { usePathname, useRouter }                     from \'@I18n/navigation\';',
-    'import { localeValues }                               from \'@I18n/routing\';',
+    'import { Box, CircularProgress, MenuItem, TextField } from \'@example/ui\';',
+    'import { usePathname, useRouter }                     from \'@App/localization/navigation\';',
+    'import { localeValues }                               from \'@App/localization/routing\';',
     '',
     'import styles                                         from \'./styles.module.css\';',
     '',

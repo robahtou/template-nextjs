@@ -1,31 +1,22 @@
-import path from 'path';
+import path from 'node:path';
 
 
-function resolveAlias(id, basedir, importOptions) {
+function resolveAlias(id, _basedir, importOptions) {
   const { root } = importOptions;
 
-  // resolve @Styles alias
-  if (/^@Styles/.test(id)) {
-    const [ assetType, filename ] = id.split('/');
-    return `${root}/assets/styles/${filename}`;
+  if (id.startsWith('@Styles/')) {
+    return path.resolve(root, 'assets/styles', id.slice('@Styles/'.length));
   }
-
-  // resolve relative path, @import './components/style.css'; prefix with './' or '../'
-  // if (/^\./.test(id)) return path.resolve(basedir, id);
-
-  // resolve node_modules, @import 'normalize.css/normalize.css'
-  // return path.resolve('./node_modules', id);
 }
 
 
 export default {
   plugins: [
     ['postcss-import', {
-      root: 'src',
-      path: ['app', 'assets', 'components'],
-      skipDuplicates: true,
-      resolve: resolveAlias
-
+      root            : 'src',
+      path            : ['app', 'assets', 'components'],
+      skipDuplicates  : true,
+      resolve         : resolveAlias
     }],
     'postcss-nesting',
     'postcss-custom-media',

@@ -1,14 +1,23 @@
-import assert             from 'node:assert/strict';
-import { spawnSync }      from 'node:child_process';
-import fs                 from 'node:fs/promises';
-import os                 from 'node:os';
-import path               from 'node:path';
-import process            from 'node:process';
-import test               from 'node:test';
-import { fileURLToPath }  from 'node:url';
+import assert               from 'node:assert/strict';
+import { spawnSync }        from 'node:child_process';
+import fs                   from 'node:fs/promises';
+import os                   from 'node:os';
+import path                 from 'node:path';
+import process              from 'node:process';
+import test                 from 'node:test';
+import { fileURLToPath }    from 'node:url';
+
+import { formatSourceText } from './typescript-object-layout.mjs';
 
 
 const repoRoot = fileURLToPath(new URL('../../', import.meta.url));
+
+test('fails clearly when source is not parseable by the compatibility API', () => {
+  assert.throws(
+    () => formatSourceText('const broken = {', 'broken.ts'),
+    /not parseable by the TypeScript 6 compatibility API/u
+  );
+});
 
 test('aligns type literal properties with multiline type annotations', async (testContext) => {
   const tempDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'typescript-object-layout-'));
@@ -124,15 +133,15 @@ test('aligns object literals while preserving inter-property comments', async (t
     '',
     '  experimental: {',
     '    cssChunking: true,',
-    '    // AIDEV-NOTE: testing lock stays opt-in.',
+    '    // Keep the testing lock opt-in.',
     '    exposeTestingApiInProductionBuild: false,',
     '    // rootParams: true,',
     '    taint: true,',
     '    turbopackRustReactCompiler: true,',
     '  },',
     '',
-    '  // Keep pino external.',
-    '  serverExternalPackages: [\'pino\'],',
+    '  // Keep the logging package external.',
+    '  serverExternalPackages: [\'logger-package\'],',
     '  poweredByHeader: false,',
     '  output: \'standalone\'',
     '};',
@@ -149,15 +158,15 @@ test('aligns object literals while preserving inter-property comments', async (t
     '',
     '  experimental            : {',
     '    cssChunking                       : true,',
-    '    // AIDEV-NOTE: testing lock stays opt-in.',
+    '    // Keep the testing lock opt-in.',
     '    exposeTestingApiInProductionBuild : false,',
     '    // rootParams: true,',
     '    taint                             : true,',
     '    turbopackRustReactCompiler        : true',
     '  },',
     '',
-    '  // Keep pino external.',
-    '  serverExternalPackages  : [\'pino\'],',
+    '  // Keep the logging package external.',
+    '  serverExternalPackages  : [\'logger-package\'],',
     '  poweredByHeader         : false,',
     '  output                  : \'standalone\'',
     '};',

@@ -1,0 +1,16 @@
+---
+description: "Ownership and maintenance contract for folder context guides"
+globs: "**/CONTEXT.md"
+alwaysApply: false
+---
+# CONTEXT.md
+
+- `README.md` is the root entry point; nested durable guidance is named `CONTEXT.md`.
+- Document the folder's purpose, responsibilities, invariants, related paths, and safe extension points.
+- Describe current executable behavior, not aspirational architecture or ignored implementation plans.
+- Link to canonical manifests and configuration instead of duplicating exact dependency versions.
+- Update the nearest guide when ownership, routing, data flow, caching, security posture, or extension points materially change.
+- Do not update guides for formatting-only or trivial implementation edits.
+- Keep commands real and local links resolvable.
+
+Run `pnpm lint:context-md`; use `pnpm fmt:context-md` only when prose formatting needs a fix.

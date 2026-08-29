@@ -1,0 +1,16 @@
+---
+description: "React Compiler-compatible component conventions"
+globs: "**/*.{jsx,tsx}"
+alwaysApply: false
+---
+# React Compiler
+
+- Keep rendering pure: do not mutate props, state, module data, or values created outside the current render.
+- Follow the Rules of Hooks and keep hook dependencies truthful.
+- Derive values during render when possible; use effects only to synchronize with an external system.
+- Do not read or write refs during render except for safe initialization patterns supported by React.
+- Prefer straightforward component code. Add manual memoization only for a measured need or a required referential contract.
+- Do not silence compiler diagnostics to preserve an invalid pattern; fix the component boundary.
+- Confirm `reactCompiler` remains enabled in `next.config.ts` before relying on compiler behavior.
+
+Use `pnpm typecheck` and `pnpm build` to validate compiler-sensitive changes.

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Advanced TypeScript"
+  short_description: "Solve advanced TypeScript type-system problems"
+  default_prompt: "Use $typescript-magician to diagnose this advanced TypeScript type-system problem."
