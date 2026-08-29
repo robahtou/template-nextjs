@@ -1,27 +1,34 @@
 #!/usr/bin/env node
 
-import { existsSync, realpathSync, statSync } from 'node:fs';
-import { extname, isAbsolute, relative, resolve, sep } from 'node:path';
-import { spawnSync } from 'node:child_process';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { realpathSync }                           from 'node:fs';
+import { extname, relative, resolve, sep }        from 'node:path';
 
-const PROJECT_ROOT = realpathSync(fileURLToPath(new URL('../../', import.meta.url)));
-const SUPPORTED_EXTENSIONS = new Set([
+import {
+  formatTarget as formatRepositoryTarget,
+  resolveFormatTarget as resolveRepositoryTarget
+}                                                 from '../../tooling/code-style/fmt-file.mjs';
+
+
+const PROJECT_ROOT          = realpathSync(resolve(import.meta.dirname, '../..'));
+const SUPPORTED_EXTENSIONS  = new Set([
+  '.cjs',
   '.css',
+  '.cts',
   '.js',
   '.jsx',
   '.mjs',
+  '.mts',
   '.ts',
   '.tsx'
 ]);
-const PATH_KEYS = [
+const PATH_KEYS             = [
   'file_path',
   'filePath',
   'edited_file_path',
   'editedFilePath',
   'path'
 ];
-const CONTAINER_KEYS = [
+const CONTAINER_KEYS        = [
   'tool_input',
   'toolInput',
   'input',
@@ -35,24 +42,9 @@ function isRecord(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
-function isInsideRoot(root, candidate) {
-  const localPath = relative(root, candidate);
-  return localPath !== ''
-    && localPath !== '..'
-    && !localPath.startsWith(`..${sep}`)
-    && !isAbsolute(localPath);
-}
-
-function toAbsolutePath(filePath, root) {
-  if (filePath.startsWith('file://')) {
-    return resolve(fileURLToPath(filePath));
-  }
-
-  return isAbsolute(filePath) ? resolve(filePath) : resolve(root, filePath);
-}
-
-function isSupported(filePath) {
-  return SUPPORTED_EXTENSIONS.has(extname(filePath).toLowerCase());
+export function isSupported(filePath) {
+  return filePath.endsWith(`${sep}CONTEXT.md`)
+    || SUPPORTED_EXTENSIONS.has(extname(filePath).toLowerCase());
 }
 
 export function extractEditedPath(payload) {
@@ -75,45 +67,41 @@ export function extractEditedPath(payload) {
 
 export function resolveFormatTarget(filePath, root = PROJECT_ROOT) {
   try {
-    const realRoot = realpathSync(root);
-    const candidate = toAbsolutePath(filePath, realRoot);
+    const realRoot       = realpathSync(root);
+    const resolvedTarget = resolveRepositoryTarget(
+      filePath,
+      {
+        repositoryRoot  : realRoot,
+        workingDirectory: realRoot
+      }
+    );
 
-    if (!isInsideRoot(realRoot, candidate) || !existsSync(candidate)) return null;
-
-    const realCandidate = realpathSync(candidate);
-    if (!isInsideRoot(realRoot, realCandidate)) return null;
-    if (!statSync(realCandidate).isFile() || !isSupported(realCandidate)) return null;
-
-    return relative(realRoot, realCandidate);
+    return resolvedTarget === null
+      ? null
+      : relative(realRoot, resolvedTarget.targetPath);
   } catch {
     return null;
   }
 }
 
-export function formatEditedFile(
+export async function formatEditedFile(
   payload,
-  { root = PROJECT_ROOT, spawn = spawnSync } = {}
+  {
+    format = formatRepositoryTarget,
+    root = PROJECT_ROOT
+  } = {}
 ) {
   const editedPath = extractEditedPath(payload);
   if (!editedPath) return false;
 
-  const target = resolveFormatTarget(editedPath, root);
-  if (!target) return false;
-
   try {
-    const result = spawn(
-      'pnpm',
-      ['fmt:file', '--file', target],
+    return await format(
+      editedPath,
       {
-        cwd: root,
-        shell: false,
-        stdio: 'ignore',
-        timeout: 20_000,
-        windowsHide: true
+        repositoryRoot  : root,
+        workingDirectory: root
       }
     );
-
-    return !result.error && result.status === 0;
   } catch {
     return false;
   }
@@ -134,7 +122,7 @@ async function readPayload(stream) {
 export async function main() {
   try {
     const payload = await readPayload(process.stdin);
-    formatEditedFile(payload);
+    await formatEditedFile(payload);
   } catch {
     // Formatting is best-effort; malformed input and formatter failures fail open.
   }
@@ -142,7 +130,4 @@ export async function main() {
   process.stdout.write('{}\n');
 }
 
-const isDirectExecution = process.argv[1]
-  && pathToFileURL(resolve(process.argv[1])).href === import.meta.url;
-
-if (isDirectExecution) await main();
+if (import.meta.main) await main();

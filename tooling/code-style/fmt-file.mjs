@@ -1,49 +1,41 @@
-import { statSync }   from 'node:fs';
-import path           from 'node:path';
-import { spawnSync }  from 'node:child_process';
-import process        from 'node:process';
+import {
+  lstatSync,
+  readFileSync,
+  realpathSync,
+  writeFileSync
+}                         from 'node:fs';
+import path               from 'node:path';
+import process            from 'node:process';
+import { fileURLToPath }  from 'node:url';
 
 
-const SCRIPT_DIR = import.meta.dirname;
+const SCRIPT_DIRECTORY = import.meta.dirname;
+const REPOSITORY_ROOT  = realpathSync(path.resolve(SCRIPT_DIRECTORY, '..', '..'));
 
-const TYPESCRIPT_FORMATTER_SCRIPTS  = [
-  `${SCRIPT_DIR}/typescript-import-layout.mjs`,
-  `${SCRIPT_DIR}/typescript-object-layout.mjs`,
-  `${SCRIPT_DIR}/typescript-parameter-layout.mjs`,
-  `${SCRIPT_DIR}/typescript-const-layout.mjs`
-];
-const CSS_FORMATTER_SCRIPTS         = [`${SCRIPT_DIR}/css-formatting.mjs`];
-const TYPESCRIPT_EXTENSIONS         = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs']);
+const TYPESCRIPT_EXTENSIONS = new Set([
+  '.cjs',
+  '.cts',
+  '.js',
+  '.jsx',
+  '.mjs',
+  '.mts',
+  '.ts',
+  '.tsx'
+]);
 
-function main() {
-  const target = parseTarget(process.argv.slice(2));
+function isInsideRoot(rootPath, candidatePath) {
+  const relativePath = path.relative(rootPath, candidatePath);
 
-  if (target === null) {
-    console.error('Missing target. Run `pnpm fmt:file --file <path>`.');
-    process.exitCode = 1;
-    return;
-  }
-
-  const formatterScripts = resolveFormatterScripts(target);
-
-  for (const scriptPath of formatterScripts) {
-    const result = spawnSync(process.execPath, [scriptPath, '--fix', target], {
-      stdio: 'inherit'
-    });
-
-    if (result.error) {
-      throw result.error;
-    }
-
-    if (result.status !== 0) {
-      process.exit(result.status ?? 1);
-    }
-  }
+  return relativePath !== ''
+    && relativePath !== '..'
+    && !relativePath.startsWith(`..${path.sep}`)
+    && !path.isAbsolute(relativePath);
 }
 
-function parseTarget(argv) {
-  const envTarget = process.env.npm_config_file;
-  let target = envTarget !== undefined && envTarget.length > 0 ? envTarget : null;
+function parseTarget(argv, envTarget = process.env.npm_config_file) {
+  let target = typeof envTarget === 'string' && envTarget.length > 0
+    ? envTarget
+    : null;
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -59,10 +51,7 @@ function parseTarget(argv) {
         throw new Error('Missing value for --file.');
       }
 
-      if (target === null) {
-        target = nextArg;
-      }
-
+      target ??= nextArg;
       index += 1;
       continue;
     }
@@ -71,47 +60,149 @@ function parseTarget(argv) {
       throw new Error(`Unknown option: ${arg}`);
     }
 
-    if (target === null) {
-      target = arg;
-    }
+    target ??= arg;
   }
 
   return target;
 }
 
-function resolveFormatterScripts(target) {
-  const resolvedTarget = path.resolve(process.cwd(), target);
-  let targetStats;
+function resolveTargetPath(target, workingDirectory) {
+  return target.startsWith('file://')
+    ? path.resolve(fileURLToPath(target))
+    : path.resolve(workingDirectory, target);
+}
 
+function resolveFormatTarget(
+  target,
+  {
+    repositoryRoot = REPOSITORY_ROOT,
+    workingDirectory = process.cwd()
+  } = {}
+) {
+  const rootPath      = repositoryRoot === REPOSITORY_ROOT
+    ? REPOSITORY_ROOT
+    : realpathSync(repositoryRoot);
+  const candidatePath = resolveTargetPath(target, workingDirectory);
+
+  if (!isInsideRoot(rootPath, candidatePath)) {
+    throw new Error(`Target is outside the repository: ${candidatePath}`);
+  }
+
+  let realTargetPath;
   try {
-    targetStats = statSync(resolvedTarget);
+    realTargetPath = realpathSync(candidatePath);
   } catch (error) {
-    throw new Error(`Target not found: ${resolvedTarget}`, { cause: error });
+    if (
+      error !== null
+      && typeof error === 'object'
+      && ('code' in error)
+      && (error.code === 'ENOENT' || error.code === 'ENOTDIR')
+    ) {
+      return null;
+    }
+
+    throw error;
   }
 
-  if (targetStats.isDirectory()) {
-    return [
-      ...TYPESCRIPT_FORMATTER_SCRIPTS,
-      ...CSS_FORMATTER_SCRIPTS
-    ];
+  if (!isInsideRoot(rootPath, realTargetPath)) {
+    throw new Error(`Target resolves outside the repository: ${candidatePath}`);
   }
 
-  const extension = path.extname(resolvedTarget).toLowerCase();
+  if (!lstatSync(realTargetPath).isFile()) {
+    return null;
+  }
+
+  if (path.basename(realTargetPath) === 'CONTEXT.md') {
+    return {
+      kind      : 'context',
+      targetPath: realTargetPath
+    };
+  }
+
+  const extension = path.extname(realTargetPath).toLowerCase();
 
   if (extension === '.css') {
-    return CSS_FORMATTER_SCRIPTS;
+    return {
+      kind      : 'css',
+      targetPath: realTargetPath
+    };
   }
 
   if (TYPESCRIPT_EXTENSIONS.has(extension)) {
-    return TYPESCRIPT_FORMATTER_SCRIPTS;
+    return {
+      kind      : 'typescript',
+      targetPath: realTargetPath
+    };
   }
 
-  throw new Error(`Unsupported file extension for fmt:file: ${extension || '(none)'}.`);
+  return null;
 }
 
-try {
-  main();
-} catch (error) {
-  console.error(error instanceof Error ? error.message : String(error));
-  process.exitCode = 1;
+function formatTextFile(targetPath, formatter) {
+  const sourceText    = readFileSync(targetPath, 'utf8');
+  const formattedText = formatter(sourceText, targetPath);
+
+  if (formattedText !== sourceText) {
+    writeFileSync(targetPath, formattedText, 'utf8');
+  }
 }
+
+async function formatTarget(target, options = {}) {
+  const resolvedTarget = resolveFormatTarget(target, options);
+
+  if (resolvedTarget === null) {
+    return false;
+  }
+
+  if (resolvedTarget.kind === 'context') {
+    const { formatContextMarkdown } = await import('../../scripts/lint/context-md-prose-unwrap.mjs');
+
+    formatTextFile(resolvedTarget.targetPath, formatContextMarkdown);
+    return true;
+  }
+
+  if (resolvedTarget.kind === 'css') {
+    const { formatCssSource } = await import('./css-formatting.mjs');
+
+    formatTextFile(resolvedTarget.targetPath, formatCssSource);
+    return true;
+  }
+
+  const { formatTypeScriptSource } = await import('./typescript-format-pipeline.mjs');
+  const warnings                   = [];
+
+  formatTextFile(resolvedTarget.targetPath, (sourceText, filePath) => {
+    return formatTypeScriptSource(sourceText, filePath, warnings);
+  });
+
+  for (const warning of warnings) {
+    console.warn(`warning: ${warning}`);
+  }
+
+  return true;
+}
+
+async function main() {
+  const target = parseTarget(process.argv.slice(2));
+
+  if (target === null) {
+    throw new Error('Missing target. Run `pnpm fmt:file --file <path>`.');
+  }
+
+  await formatTarget(target);
+}
+
+if (import.meta.main) {
+  main().catch((error) => {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exitCode = 1;
+  });
+}
+
+
+export {
+  REPOSITORY_ROOT,
+  formatTarget,
+  parseTarget,
+  resolveFormatTarget
+};

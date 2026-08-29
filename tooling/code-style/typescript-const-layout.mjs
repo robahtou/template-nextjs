@@ -1,21 +1,18 @@
-import fs       from 'node:fs/promises';
-import path     from 'node:path';
-import process  from 'node:process';
-import ts       from '@typescript/typescript6';
+import fs                       from 'node:fs/promises';
+import path                     from 'node:path';
+import process                  from 'node:process';
+
+import {
+  FILE_CONCURRENCY,
+  TYPESCRIPT_EXTENSIONS,
+  collectFiles,
+  mapWithConcurrency
+}                               from './file-discovery.mjs';
+import { createSourceFile, ts } from './typescript-source.mjs';
 
 
-const DEFAULT_TARGETS         = ['src'];
-const DEFAULT_OPTIONAL_FILES  = ['next.config.ts'];
-const FILE_CONCURRENCY        = 16;
-const IGNORED_DIRECTORIES     = new Set([
-  '.cursor',
-  '.git',
-  '.next',
-  '.turbo',
-  'dist',
-  'node_modules'
-]);
-const SUPPORTED_EXTENSIONS    = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs']);
+const DEFAULT_TARGETS        = ['src', 'scripts', 'tooling'];
+const DEFAULT_OPTIONAL_FILES = ['next.config.ts', 'postcss.config.js'];
 
 const CHAR_NEWLINE = 10;
 const CHAR_EQUALS  = 61;
@@ -23,7 +20,8 @@ const CHAR_EQUALS  = 61;
 async function main() {
   const { fix, targets } = parseArgs(process.argv.slice(2));
   const files = await collectFiles(
-    targets.length > 0 ? targets : await resolveDefaultTargets()
+    targets.length > 0 ? targets : await resolveDefaultTargets(),
+    TYPESCRIPT_EXTENSIONS
   );
 
   if (files.length === 0) {
@@ -125,102 +123,8 @@ async function resolveDefaultTargets() {
   return [...DEFAULT_TARGETS, ...optionalFiles];
 }
 
-async function mapWithConcurrency(items, concurrency, task) {
-  const results = new Array(items.length).fill(undefined);
-  let nextIndex = 0;
-
-  async function runWorker() {
-    for (;;) {
-      const itemIndex = nextIndex;
-
-      if (itemIndex >= items.length) {
-        return;
-      }
-
-      nextIndex += 1;
-      results[itemIndex] = await task(items[itemIndex], itemIndex);
-    }
-  }
-
-  const workerCount = Math.min(concurrency, items.length);
-  const workers     = [];
-
-  for (let workerIndex = 0; workerIndex < workerCount; workerIndex += 1) {
-    workers.push(runWorker());
-  }
-
-  await Promise.all(workers);
-
-  return results;
-}
-
-async function collectFiles(targets) {
-  const collected = new Set();
-
-  await Promise.all(
-    targets.map((target) => walkPath(path.resolve(process.cwd(), target), collected))
-  );
-
-  return Array.from(collected).sort();
-}
-
-async function walkPath(targetPath, collected) {
-  let stats;
-
-  try {
-    stats = await fs.stat(targetPath);
-  } catch (error) {
-    throw new Error(`Target not found: ${targetPath}`, { cause: error });
-  }
-
-  if (stats.isDirectory()) {
-    await walkDirectory(targetPath, collected);
-    return;
-  }
-
-  if (stats.isFile() && isSupportedFile(targetPath)) {
-    collected.add(targetPath);
-  }
-}
-
-async function walkDirectory(directoryPath, collected) {
-  const entries      = await fs.readdir(directoryPath, { withFileTypes: true });
-  const pendingWalks = [];
-
-  for (const entry of entries) {
-    const entryPath = path.join(directoryPath, entry.name);
-
-    if (entry.isDirectory()) {
-      if (!IGNORED_DIRECTORIES.has(entry.name)) {
-        pendingWalks.push(walkDirectory(entryPath, collected));
-      }
-      continue;
-    }
-
-    if (entry.isFile()) {
-      if (isSupportedFile(entryPath)) {
-        collected.add(entryPath);
-      }
-      continue;
-    }
-
-    if (entry.isSymbolicLink()) {
-      // Symlinks resolve through stat so linked files and directories keep the previous follow behavior.
-      pendingWalks.push(walkPath(entryPath, collected));
-    }
-  }
-
-  await Promise.all(pendingWalks);
-}
-
-function isSupportedFile(filePath) {
-  return SUPPORTED_EXTENSIONS.has(path.extname(filePath));
-}
-
-export function formatSourceText(sourceText, filePath) {
-  let nextText = normalizeLineEndings(sourceText);
-
-  nextText = formatAlignableDeclarationGroups(nextText, filePath);
+export function formatParsedSourceText(sourceText, filePath, sourceFile) {
+  let nextText = formatAlignableDeclarationGroups(sourceText, filePath, sourceFile);
 
   if (!nextText.endsWith('\n')) {
     nextText += '\n';
@@ -229,20 +133,21 @@ export function formatSourceText(sourceText, filePath) {
   return nextText;
 }
 
+export function formatSourceText(sourceText, filePath) {
+  const normalizedText = normalizeLineEndings(sourceText);
+  const sourceFile     = createSourceFile(filePath, normalizedText);
+
+  return formatParsedSourceText(normalizedText, filePath, sourceFile);
+}
+
 function normalizeLineEndings(sourceText) {
   return sourceText.replace(/\r\n/g, '\n');
 }
 
-function formatAlignableDeclarationGroups(sourceText, filePath) {
+function formatAlignableDeclarationGroups(sourceText, filePath, sourceFile) {
   let nextText = sourceText;
 
   for (;;) {
-    const sourceFile = createSourceFile(filePath, nextText);
-
-    if (sourceFile.parseDiagnostics.length > 0) {
-      return nextText;
-    }
-
     const declarationGroups = getRenderableDeclarationGroups(sourceFile, nextText);
 
     if (declarationGroups.length === 0) {
@@ -268,35 +173,8 @@ function formatAlignableDeclarationGroups(sourceText, filePath) {
     }
 
     nextText = nextPassText;
+    sourceFile = createSourceFile(filePath, nextText);
   }
-}
-
-function createSourceFile(filePath, sourceText) {
-  // AIDEV-NOTE: setParentNodes stays false because every AST accessor here passes sourceFile
-  // explicitly; skipping parent wiring avoids a full extra tree walk per parse.
-  return ts.createSourceFile(
-    filePath,
-    sourceText,
-    ts.ScriptTarget.Latest,
-    false,
-    getScriptKind(filePath)
-  );
-}
-
-function getScriptKind(filePath) {
-  if (filePath.endsWith('.tsx')) {
-    return ts.ScriptKind.TSX;
-  }
-
-  if (filePath.endsWith('.jsx')) {
-    return ts.ScriptKind.JSX;
-  }
-
-  if (filePath.endsWith('.js')) {
-    return ts.ScriptKind.JS;
-  }
-
-  return ts.ScriptKind.TS;
 }
 
 function getRenderableDeclarationGroups(sourceFile, sourceText) {
@@ -316,19 +194,48 @@ function getRenderableDeclarationGroups(sourceFile, sourceText) {
     return declarationGroup.renderedGroup !== sourceText.slice(declarationGroup.start, declarationGroup.end);
   });
 
-  return unstableGroups
-    .filter((declarationGroup, groupIndex) => {
-      return !unstableGroups.some((otherGroup, otherGroupIndex) => {
-        if (groupIndex === otherGroupIndex) {
-          return false;
-        }
+  unstableGroups.sort((leftGroup, rightGroup) => {
+    return leftGroup.start - rightGroup.start
+      || rightGroup.end - leftGroup.end;
+  });
 
-        return otherGroup.start >= declarationGroup.start
-          && otherGroup.end <= declarationGroup.end
-          && (otherGroup.start !== declarationGroup.start || otherGroup.end !== declarationGroup.end);
-      });
-    })
-    .sort((leftGroup, rightGroup) => leftGroup.start - rightGroup.start);
+  const groupEntries    = unstableGroups.map((group) => {
+    return {
+      containsNestedGroup: false,
+      group              : group
+    };
+  });
+  const containingStack = [];
+
+  for (const entry of groupEntries) {
+    while (containingStack.length > 0) {
+      const parentGroup = containingStack.at(-1).group;
+
+      if (entry.group.start >= parentGroup.start && entry.group.end <= parentGroup.end) {
+        break;
+      }
+
+      containingStack.pop();
+    }
+
+    const parentEntry = containingStack.at(-1);
+
+    if (
+      parentEntry !== undefined
+      && (
+        entry.group.start !== parentEntry.group.start
+        || entry.group.end !== parentEntry.group.end
+      )
+    ) {
+      parentEntry.containsNestedGroup = true;
+    }
+
+    containingStack.push(entry);
+  }
+
+  return groupEntries
+    .filter((entry) => !entry.containsNestedGroup)
+    .map((entry) => entry.group);
 }
 
 function isStatementListOwner(node) {
@@ -645,7 +552,7 @@ function getRenderableStatementEndPosition(sourceText, position) {
   return newlineIndex === -1 ? sourceText.length : newlineIndex;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (import.meta.main) {
   main().catch((error) => {
     console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;

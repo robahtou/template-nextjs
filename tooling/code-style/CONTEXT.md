@@ -2,7 +2,7 @@
 
 ## Ownership
 
-This workspace owns the generic EOP-compatible file-formatting and syntax-policy tools used by the template. The formatter contract is `eop-aligned-v1`: a supported file formatted in another project with the same contract must produce the same bytes here.
+This workspace owns the template's file-formatting and syntax-policy tools. The formatter contract is `template-code-style-v1`: a supported file formatted in another project with the same contract must produce the same bytes here.
 
 The scripts use Node.js built-ins plus the isolated `@typescript/typescript6` compatibility API. Application typechecking remains owned by the native root TypeScript dependency.
 
@@ -14,21 +14,24 @@ The scripts use Node.js built-ins plus the isolated `@typescript/typescript6` co
 - `typescript-const-layout.mjs` aligns consecutive single-declarator `const` statements and compatible type-alias groups without reordering declarations.
 - `css-formatting.mjs` renders supported CSS blocks deterministically, including indentation, declaration alignment, semicolons, selector spacing, and normalized hexadecimal casing.
 - `no-class-syntax.mjs` rejects project-authored class declarations and class expressions.
-- `fmt-file.mjs` applies imports, objects, parameters, and consts to supported JavaScript or TypeScript targets, and applies the CSS formatter to CSS targets. It accepts `--file <path>`, a positional target, or a directory.
+- `code-style.mjs` is the repository-wide check/fix entrypoint. It discovers files once, reads each source once, applies the complete in-process pipeline, and writes changed files once.
+- `fmt-file.mjs` applies that in-process TypeScript or CSS pipeline to one source file and the prose formatter to one `CONTEXT.md`. It accepts `--file <path>` or a positional target, rejects paths outside the repository, and no-ops for missing or unsupported files.
 
-Every fixing formatter is idempotent. Check mode reports files whose canonical rendering differs; fix mode writes only those files. Formatter order is imports, objects, parameters, then consts.
+Every fixing formatter is idempotent. Check mode reports files whose canonical rendering differs; fix mode writes only those files. TypeScript formatter order is imports, objects, parameters, then consts. The pipeline reuses one parentless TypeScript syntax tree while text remains unchanged and reparses only after a rewrite.
 
 ## Portable command contract
 
-Formatter defaults are relative to the invoking project: `src/` plus an optional root `next.config.ts`; CSS defaults to `src/`. Explicit file or directory targets override those defaults. The generic source extensions are `.ts`, `.tsx`, `.js`, `.jsx`, and `.mjs`.
+Root formatter defaults cover `src`, `scripts`, and `tooling` plus optional root `next.config.ts` and `postcss.config.js`; CSS defaults to `src`. Explicit file or directory targets override those defaults. The generic source extensions are `.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, and `.cjs`.
 
-The tools intentionally contain no template application imports, aliases, or runtime assumptions. Project packages expose the same thin command aliases:
+File discovery is shared, bounded, deterministic, and physical-path aware so overlapping or symbolic-link targets are not rescanned. Generated, dependency, cache, planning, and formatter-fixture directories are excluded centrally.
+
+The tools intentionally contain no template application imports, aliases, or runtime assumptions. `pnpm lint` and `pnpm fmt` each invoke the composite source pipeline once, then run repository-wide context prose separately. Focused aliases remain available:
 
 - `pnpm lint:imports`, `pnpm lint:objects`, `pnpm lint:parameters`, `pnpm lint:consts`, and `pnpm lint:css`
 - `pnpm fmt:imports`, `pnpm fmt:objects`, `pnpm fmt:parameters`, `pnpm fmt:consts`, and `pnpm fmt:css`
 - `pnpm fmt:file --file <path>`
 
-Repository-specific prose formatting remains separate from this cross-project file-formatting contract.
+Repository-wide prose formatting remains a separate command, while `fmt:file` can apply that same formatter to one `CONTEXT.md`.
 
 ## TypeScript bridge
 
@@ -36,4 +39,4 @@ TypeScript 7 is the application compiler. The exact TypeScript 6 package is a te
 
 ## Verification
 
-Run `pnpm test:code-style` for formatter fixtures, `pnpm lint:tooling` for the tool sources, and the repository's non-fixing validation before handoff. The composite `fmt-file` fixture asserts exact TypeScript and CSS output plus second-pass idempotence.
+Run `pnpm test:code-style` for formatter fixtures, `pnpm lint:tooling` for the tool sources, and the repository's non-fixing validation before handoff. The composite `fmt-file` fixtures assert exact TypeScript, CSS, and context-prose output, second-pass idempotence, extension coverage, spaces in paths, missing and unsupported no-ops, and repository-containment enforcement.

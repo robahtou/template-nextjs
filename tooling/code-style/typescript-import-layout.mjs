@@ -1,27 +1,25 @@
-import fs       from 'node:fs/promises';
-import path     from 'node:path';
-import process  from 'node:process';
-import ts       from '@typescript/typescript6';
+import fs                       from 'node:fs/promises';
+import path                     from 'node:path';
+import process                  from 'node:process';
+
+import {
+  FILE_CONCURRENCY,
+  TYPESCRIPT_EXTENSIONS,
+  collectFiles,
+  mapWithConcurrency
+}                               from './file-discovery.mjs';
+import { createSourceFile, ts } from './typescript-source.mjs';
 
 
-const DEFAULT_TARGETS         = ['src'];
-const DEFAULT_OPTIONAL_FILES  = ['next.config.ts'];
-const FILE_CONCURRENCY        = 16;
-const IGNORED_DIRECTORIES     = new Set([
-  '.cursor',
-  '.git',
-  '.next',
-  '.turbo',
-  'dist',
-  'node_modules'
-]);
-const SUPPORTED_EXTENSIONS    = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs']);
+const DEFAULT_TARGETS         = ['src', 'scripts', 'tooling'];
+const DEFAULT_OPTIONAL_FILES  = ['next.config.ts', 'postcss.config.js'];
 const MAX_FROM_COLUMN         = 57;
 
 async function main() {
   const { fix, targets } = parseArgs(process.argv.slice(2));
   const files = await collectFiles(
-    targets.length > 0 ? targets : await resolveDefaultTargets()
+    targets.length > 0 ? targets : await resolveDefaultTargets(),
+    TYPESCRIPT_EXTENSIONS
   );
 
   if (files.length === 0) {
@@ -131,106 +129,11 @@ async function resolveDefaultTargets() {
   return [...DEFAULT_TARGETS, ...optionalFiles];
 }
 
-async function mapWithConcurrency(items, concurrency, task) {
-  const results = new Array(items.length).fill(undefined);
-  let nextIndex = 0;
-
-  async function runWorker() {
-    for (;;) {
-      const itemIndex = nextIndex;
-
-      if (itemIndex >= items.length) {
-        return;
-      }
-
-      nextIndex += 1;
-      results[itemIndex] = await task(items[itemIndex], itemIndex);
-    }
-  }
-
-  const workerCount = Math.min(concurrency, items.length);
-  const workers     = [];
-
-  for (let workerIndex = 0; workerIndex < workerCount; workerIndex += 1) {
-    workers.push(runWorker());
-  }
-
-  await Promise.all(workers);
-
-  return results;
-}
-
-async function collectFiles(targets) {
-  const collected = new Set();
-
-  await Promise.all(
-    targets.map((target) => walkPath(path.resolve(process.cwd(), target), collected))
-  );
-
-  return Array.from(collected).sort();
-}
-
-async function walkPath(targetPath, collected) {
-  let stats;
-
-  try {
-    stats = await fs.stat(targetPath);
-  } catch (error) {
-    throw new Error(`Target not found: ${targetPath}`, { cause: error });
-  }
-
-  if (stats.isDirectory()) {
-    await walkDirectory(targetPath, collected);
-    return;
-  }
-
-  if (stats.isFile() && isSupportedFile(targetPath)) {
-    collected.add(targetPath);
-  }
-}
-
-async function walkDirectory(directoryPath, collected) {
-  const entries      = await fs.readdir(directoryPath, { withFileTypes: true });
-  const pendingWalks = [];
-
-  for (const entry of entries) {
-    const entryPath = path.join(directoryPath, entry.name);
-
-    if (entry.isDirectory()) {
-      if (!IGNORED_DIRECTORIES.has(entry.name)) {
-        pendingWalks.push(walkDirectory(entryPath, collected));
-      }
-      continue;
-    }
-
-    if (entry.isFile()) {
-      if (isSupportedFile(entryPath)) {
-        collected.add(entryPath);
-      }
-      continue;
-    }
-
-    if (entry.isSymbolicLink()) {
-      // Symlinks resolve through stat so linked files and directories keep the previous follow behavior.
-      pendingWalks.push(walkPath(entryPath, collected));
-    }
-  }
-
-  await Promise.all(pendingWalks);
-}
-
-function isSupportedFile(filePath) {
-  return SUPPORTED_EXTENSIONS.has(path.extname(filePath));
-}
-
-export function formatSourceText(sourceText, filePath, warnings) {
-  let nextText = normalizeLineEndings(sourceText);
-
+export function formatParsedSourceText(sourceText, filePath, warnings, sourceFile) {
+  let nextText = sourceText;
   // Each stage needs an AST of the current text, so the parse is reused across stages and only
   // redone when a stage actually rewrote something. On already-formatted files this is one parse
   // instead of three.
-  let sourceFile = createSourceFile(filePath, nextText);
-
   const importFormattedText = formatImportBlock(nextText, sourceFile, filePath, warnings);
 
   if (importFormattedText !== nextText) {
@@ -252,6 +155,13 @@ export function formatSourceText(sourceText, filePath, warnings) {
   }
 
   return nextText;
+}
+
+export function formatSourceText(sourceText, filePath, warnings = []) {
+  const normalizedText = normalizeLineEndings(sourceText);
+  const sourceFile     = createSourceFile(filePath, normalizedText);
+
+  return formatParsedSourceText(normalizedText, filePath, warnings, sourceFile);
 }
 
 function normalizeLineEndings(sourceText) {
@@ -300,10 +210,16 @@ function formatImportBlock(sourceText, sourceFile, filePath, warnings) {
   const afterImports  = trimLeadingBlankLines(sourceText.slice(importDeclarations.at(-1).end));
 
   if (afterImports.length === 0) {
-    return `${beforeImports}${importBlock}\n`;
+    return joinSourceSectionsIfChanged(
+      sourceText,
+      [beforeImports, importBlock, '\n']
+    );
   }
 
-  return `${beforeImports}${importBlock}\n\n\n${afterImports}`;
+  return joinSourceSectionsIfChanged(
+    sourceText,
+    [beforeImports, importBlock, '\n\n\n', afterImports]
+  );
 }
 
 function formatNamedReExportBlocks(sourceText, sourceFile) {
@@ -313,50 +229,42 @@ function formatNamedReExportBlocks(sourceText, sourceFile) {
     return sourceText;
   }
 
+  const replacements = [];
+
+  for (const block of reExportBlocks) {
+    const start         = block[0].getStart(sourceFile);
+    const end           = block.at(-1).end;
+    const renderedBlock = renderNamedReExportBlock(block, sourceFile, sourceText);
+
+    if (renderedBlock !== sourceText.slice(start, end)) {
+      replacements.push({
+        end           : end,
+        renderedBlock : renderedBlock,
+        start         : start
+      });
+    }
+  }
+
+  if (replacements.length === 0) {
+    return sourceText;
+  }
+
   // Blocks arrive in ascending, non-overlapping statement order, so one forward segment join
   // applies every rewrite without repeated string splicing.
   const parts = [];
   let cursor = 0;
 
-  for (const block of reExportBlocks) {
+  for (const replacement of replacements) {
     parts.push(
-      sourceText.slice(cursor, block[0].getStart(sourceFile)),
-      renderNamedReExportBlock(block, sourceFile, sourceText)
+      sourceText.slice(cursor, replacement.start),
+      replacement.renderedBlock
     );
-    cursor = block.at(-1).end;
+    cursor = replacement.end;
   }
 
   parts.push(sourceText.slice(cursor));
 
   return parts.join('');
-}
-
-function createSourceFile(filePath, sourceText) {
-  // AIDEV-NOTE: setParentNodes stays false because every AST accessor here passes sourceFile
-  // explicitly; skipping parent wiring avoids a full extra tree walk per parse.
-  return ts.createSourceFile(
-    filePath,
-    sourceText,
-    ts.ScriptTarget.Latest,
-    false,
-    getScriptKind(filePath)
-  );
-}
-
-function getScriptKind(filePath) {
-  if (filePath.endsWith('.tsx')) {
-    return ts.ScriptKind.TSX;
-  }
-
-  if (filePath.endsWith('.jsx')) {
-    return ts.ScriptKind.JSX;
-  }
-
-  if (filePath.endsWith('.js')) {
-    return ts.ScriptKind.JS;
-  }
-
-  return ts.ScriptKind.TS;
 }
 
 function getTopImportDeclarations(sourceFile) {
@@ -949,10 +857,13 @@ function formatBottomExportGroup(sourceText, sourceFile) {
   const beforeExportGroup = sourceText.slice(0, exportGroup[0].getStart(sourceFile)).replace(/\s*$/, '');
 
   if (beforeExportGroup.length === 0) {
-    return `${exportText}\n`;
+    return joinSourceSectionsIfChanged(sourceText, [exportText, '\n']);
   }
 
-  return `${beforeExportGroup}\n\n\n${exportText}\n`;
+  return joinSourceSectionsIfChanged(
+    sourceText,
+    [beforeExportGroup, '\n\n\n', exportText, '\n']
+  );
 }
 
 function getTrailingBottomExportGroup(sourceFile) {
@@ -965,9 +876,10 @@ function getTrailingBottomExportGroup(sourceFile) {
       break;
     }
 
-    exportGroup.unshift(statement);
+    exportGroup.push(statement);
   }
 
+  exportGroup.reverse();
   return exportGroup;
 }
 
@@ -984,7 +896,35 @@ function trimLeadingBlankLines(text) {
   return text.replace(/^(?:[ \t]*\n)*/, '');
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+function joinSourceSectionsIfChanged(sourceText, sections) {
+  let expectedLength = 0;
+
+  for (const section of sections) {
+    expectedLength += section.length;
+  }
+
+  if (expectedLength === sourceText.length) {
+    let offset = 0;
+    let matches = true;
+
+    for (const section of sections) {
+      if (!sourceText.startsWith(section, offset)) {
+        matches = false;
+        break;
+      }
+
+      offset += section.length;
+    }
+
+    if (matches) {
+      return sourceText;
+    }
+  }
+
+  return sections.join('');
+}
+
+if (import.meta.main) {
   main().catch((error) => {
     console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;

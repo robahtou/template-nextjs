@@ -1,21 +1,18 @@
-import fs       from 'node:fs/promises';
-import path     from 'node:path';
-import process  from 'node:process';
-import ts       from '@typescript/typescript6';
+import fs                       from 'node:fs/promises';
+import path                     from 'node:path';
+import process                  from 'node:process';
+
+import {
+  FILE_CONCURRENCY,
+  TYPESCRIPT_EXTENSIONS,
+  collectFiles,
+  mapWithConcurrency
+}                               from './file-discovery.mjs';
+import { createSourceFile, ts } from './typescript-source.mjs';
 
 
-const DEFAULT_TARGETS         = ['src'];
-const DEFAULT_OPTIONAL_FILES  = ['next.config.ts'];
-const FILE_CONCURRENCY        = 16;
-const IGNORED_DIRECTORIES     = new Set([
-  '.cursor',
-  '.git',
-  '.next',
-  '.turbo',
-  'dist',
-  'node_modules'
-]);
-const SUPPORTED_EXTENSIONS    = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs']);
+const DEFAULT_TARGETS        = ['src', 'scripts', 'tooling'];
+const DEFAULT_OPTIONAL_FILES = ['next.config.ts', 'postcss.config.js'];
 
 const CHAR_NEWLINE      = 10;
 const CHAR_SPACE        = 32;
@@ -28,7 +25,8 @@ const CHAR_TAB          = 9;
 async function main() {
   const { fix, targets } = parseArgs(process.argv.slice(2));
   const files = await collectFiles(
-    targets.length > 0 ? targets : await resolveDefaultTargets()
+    targets.length > 0 ? targets : await resolveDefaultTargets(),
+    TYPESCRIPT_EXTENSIONS
   );
 
   if (files.length === 0) {
@@ -130,102 +128,8 @@ async function resolveDefaultTargets() {
   return [...DEFAULT_TARGETS, ...optionalFiles];
 }
 
-async function mapWithConcurrency(items, concurrency, task) {
-  const results = new Array(items.length).fill(undefined);
-  let nextIndex = 0;
-
-  async function runWorker() {
-    for (;;) {
-      const itemIndex = nextIndex;
-
-      if (itemIndex >= items.length) {
-        return;
-      }
-
-      nextIndex += 1;
-      results[itemIndex] = await task(items[itemIndex], itemIndex);
-    }
-  }
-
-  const workerCount = Math.min(concurrency, items.length);
-  const workers     = [];
-
-  for (let workerIndex = 0; workerIndex < workerCount; workerIndex += 1) {
-    workers.push(runWorker());
-  }
-
-  await Promise.all(workers);
-
-  return results;
-}
-
-async function collectFiles(targets) {
-  const collected = new Set();
-
-  await Promise.all(
-    targets.map((target) => walkPath(path.resolve(process.cwd(), target), collected))
-  );
-
-  return Array.from(collected).sort();
-}
-
-async function walkPath(targetPath, collected) {
-  let stats;
-
-  try {
-    stats = await fs.stat(targetPath);
-  } catch (error) {
-    throw new Error(`Target not found: ${targetPath}`, { cause: error });
-  }
-
-  if (stats.isDirectory()) {
-    await walkDirectory(targetPath, collected);
-    return;
-  }
-
-  if (stats.isFile() && isSupportedFile(targetPath)) {
-    collected.add(targetPath);
-  }
-}
-
-async function walkDirectory(directoryPath, collected) {
-  const entries      = await fs.readdir(directoryPath, { withFileTypes: true });
-  const pendingWalks = [];
-
-  for (const entry of entries) {
-    const entryPath = path.join(directoryPath, entry.name);
-
-    if (entry.isDirectory()) {
-      if (!IGNORED_DIRECTORIES.has(entry.name)) {
-        pendingWalks.push(walkDirectory(entryPath, collected));
-      }
-      continue;
-    }
-
-    if (entry.isFile()) {
-      if (isSupportedFile(entryPath)) {
-        collected.add(entryPath);
-      }
-      continue;
-    }
-
-    if (entry.isSymbolicLink()) {
-      // Symlinks resolve through stat so linked files and directories keep the previous follow behavior.
-      pendingWalks.push(walkPath(entryPath, collected));
-    }
-  }
-
-  await Promise.all(pendingWalks);
-}
-
-function isSupportedFile(filePath) {
-  return SUPPORTED_EXTENSIONS.has(path.extname(filePath));
-}
-
-function formatSourceText(sourceText, filePath) {
-  let nextText = normalizeLineEndings(sourceText);
-
-  nextText = formatParameterLists(nextText, filePath);
+function formatParsedSourceText(sourceText, sourceFile) {
+  let nextText = formatParameterLists(sourceText, sourceFile);
 
   if (!nextText.endsWith('\n')) {
     nextText += '\n';
@@ -234,15 +138,39 @@ function formatSourceText(sourceText, filePath) {
   return nextText;
 }
 
+function formatSourceText(sourceText, filePath) {
+  const normalizedText = normalizeLineEndings(sourceText);
+  const sourceFile     = createSourceFile(filePath, normalizedText);
+
+  return formatParsedSourceText(normalizedText, sourceFile);
+}
+
 function normalizeLineEndings(sourceText) {
   return sourceText.replace(/\r\n/g, '\n');
 }
 
-function formatParameterLists(sourceText, filePath) {
-  const sourceFile     = createSourceFile(filePath, sourceText);
+function formatParameterLists(sourceText, sourceFile) {
   const parameterLists = getRenderableParameterLists(sourceFile, sourceText);
 
   if (parameterLists.length === 0) {
+    return sourceText;
+  }
+
+  const replacements = [];
+
+  for (const parameterList of parameterLists) {
+    const renderedList = renderParameterList(parameterList, sourceText);
+
+    if (renderedList !== sourceText.slice(parameterList.listStart, parameterList.listEnd)) {
+      replacements.push({
+        end           : parameterList.listEnd,
+        renderedList  : renderedList,
+        start         : parameterList.listStart
+      });
+    }
+  }
+
+  if (replacements.length === 0) {
     return sourceText;
   }
 
@@ -251,45 +179,17 @@ function formatParameterLists(sourceText, filePath) {
   const parts = [];
   let cursor = 0;
 
-  for (const parameterList of parameterLists) {
+  for (const replacement of replacements) {
     parts.push(
-      sourceText.slice(cursor, parameterList.listStart),
-      renderParameterList(parameterList, sourceText)
+      sourceText.slice(cursor, replacement.start),
+      replacement.renderedList
     );
-    cursor = parameterList.listEnd;
+    cursor = replacement.end;
   }
 
   parts.push(sourceText.slice(cursor));
 
   return parts.join('');
-}
-
-function createSourceFile(filePath, sourceText) {
-  // AIDEV-NOTE: setParentNodes stays false because every AST accessor here passes sourceFile
-  // explicitly; skipping parent wiring avoids a full extra tree walk per parse.
-  return ts.createSourceFile(
-    filePath,
-    sourceText,
-    ts.ScriptTarget.Latest,
-    false,
-    getScriptKind(filePath)
-  );
-}
-
-function getScriptKind(filePath) {
-  if (filePath.endsWith('.tsx')) {
-    return ts.ScriptKind.TSX;
-  }
-
-  if (filePath.endsWith('.jsx')) {
-    return ts.ScriptKind.JSX;
-  }
-
-  if (filePath.endsWith('.js')) {
-    return ts.ScriptKind.JS;
-  }
-
-  return ts.ScriptKind.TS;
 }
 
 function getRenderableParameterLists(sourceFile, sourceText) {
@@ -309,17 +209,24 @@ function getRenderableParameterLists(sourceFile, sourceText) {
 
   visit(sourceFile);
 
-  // AIDEV-NOTE: Skip nested signatures inside another parameter list so an outer rewrite never invalidates an inner range.
-  return candidates.filter((candidate, candidateIndex) => {
-    return !candidates.some((otherCandidate, otherIndex) => {
-      if (otherIndex === candidateIndex) {
-        return false;
-      }
+  // Skip nested signatures inside another parameter list so an outer rewrite never invalidates an inner range.
+  const outermostCandidates = [];
+  let containingCandidate = null;
 
-      return candidate.listStart > otherCandidate.listStart
-        && candidate.listEnd < otherCandidate.listEnd;
-    });
-  });
+  for (const candidate of candidates) {
+    if (
+      containingCandidate !== null
+      && candidate.listStart > containingCandidate.listStart
+      && candidate.listEnd < containingCandidate.listEnd
+    ) {
+      continue;
+    }
+
+    outermostCandidates.push(candidate);
+    containingCandidate = candidate;
+  }
+
+  return outermostCandidates;
 }
 
 function isSupportedParameterListOwner(node) {
@@ -358,15 +265,16 @@ function createRenderableParameterListCandidate(node, sourceFile, sourceText) {
   let hasAligned       = false;
 
   for (const parameter of node.parameters) {
-    const gapText = sourceText.slice(previousEnd, parameter.getStart(sourceFile));
+    const gapText     = sourceText.slice(previousEnd, parameter.getStart(sourceFile));
+    const gapHasBlank = analyzeParameterGap(gapText);
 
-    if (!parameterGapIsSafe(gapText)) {
+    if (gapHasBlank === null) {
       return null;
     }
 
     const parameterInfo = classifyParameter(parameter, sourceFile, sourceText);
 
-    parameterInfo.hasBlankLineBefore = gapHasBlankLine(stripParameterGapPunctuation(gapText));
+    parameterInfo.hasBlankLineBefore = gapHasBlank;
 
     if (parameterInfo.renderKind === 'aligned-parameter') {
       hasAligned = true;
@@ -376,7 +284,7 @@ function createRenderableParameterListCandidate(node, sourceFile, sourceText) {
     previousEnd = parameter.end;
   }
 
-  if (!parameterGapIsSafe(sourceText.slice(previousEnd, parenPositions.closeParenStart))) {
+  if (analyzeParameterGap(sourceText.slice(previousEnd, parenPositions.closeParenStart)) === null) {
     return null;
   }
 
@@ -419,9 +327,55 @@ function hasNewlineBetween(sourceText, startPosition, endPosition) {
   return newlineIndex !== -1 && newlineIndex < endPosition;
 }
 
-function parameterGapIsSafe(gapText) {
-  // AIDEV-NOTE: Comments opt a signature out because this formatter only rewrites trivia-free comma gaps.
-  return /^[\s,]*$/u.test(gapText);
+function isJavaScriptWhitespace(code) {
+  return code === CHAR_TAB
+    || code === CHAR_NEWLINE
+    || code === 11
+    || code === 12
+    || code === 13
+    || code === CHAR_SPACE
+    || code === 160
+    || code === 5760
+    || (code >= 8192 && code <= 8202)
+    || code === 8232
+    || code === 8233
+    || code === 8239
+    || code === 8287
+    || code === 12288
+    || code === 65279;
+}
+
+function analyzeParameterGap(gapText) {
+  let canCompleteBlankLine = false;
+  let hasBlankLine = false;
+
+  for (let index = 0; index < gapText.length; index += 1) {
+    const code = gapText.charCodeAt(index);
+
+    if (code === CHAR_COMMA) {
+      continue;
+    }
+
+    // Comments opt a signature out because this formatter rewrites only trivia-free comma gaps.
+    if (!isJavaScriptWhitespace(code)) {
+      return null;
+    }
+
+    if (code === CHAR_NEWLINE) {
+      if (canCompleteBlankLine) {
+        hasBlankLine = true;
+      }
+
+      canCompleteBlankLine = true;
+      continue;
+    }
+
+    if (code !== CHAR_SPACE && code !== CHAR_TAB) {
+      canCompleteBlankLine = false;
+    }
+  }
+
+  return hasBlankLine;
 }
 
 function renderParameterList(parameterList, sourceText) {
@@ -553,11 +507,13 @@ function renderRawParameter(rawText, options) {
 }
 
 function prefixFirstLine(text, prefix) {
-  const lines = text.split('\n');
+  const newlineIndex = text.indexOf('\n');
 
-  lines[0] = `${prefix}${lines[0].trimStart()}`;
+  if (newlineIndex === -1) {
+    return `${prefix}${text.trimStart()}`;
+  }
 
-  return lines.join('\n');
+  return `${prefix}${text.slice(0, newlineIndex).trimStart()}${text.slice(newlineIndex)}`;
 }
 
 function getLineIndentAtPosition(sourceText, position) {
@@ -582,15 +538,15 @@ function getLineIndentAtPosition(sourceText, position) {
   return sourceText.slice(lineStart, indentEnd);
 }
 
-function gapHasBlankLine(text) {
-  return /\n[ \t]*\n/u.test(text);
+if (import.meta.main) {
+  main().catch((error) => {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exitCode = 1;
+  });
 }
 
-function stripParameterGapPunctuation(gapText) {
-  return gapText.replace(/,/gu, '');
-}
 
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : String(error));
-  process.exitCode = 1;
-});
+export {
+  formatParsedSourceText,
+  formatSourceText
+};

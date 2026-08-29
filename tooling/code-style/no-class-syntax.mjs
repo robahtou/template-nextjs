@@ -1,81 +1,39 @@
-import fs       from 'node:fs/promises';
-import path     from 'node:path';
-import process  from 'node:process';
-import ts       from '@typescript/typescript6';
+import fs                                               from 'node:fs/promises';
+import path                                             from 'node:path';
+import process                                          from 'node:process';
+
+import { findClassSyntax, findClassSyntaxInSourceFile } from './class-syntax.mjs';
+import {
+  FILE_CONCURRENCY,
+  TYPESCRIPT_EXTENSIONS,
+  collectFiles,
+  mapWithConcurrency
+}                                                       from './file-discovery.mjs';
 
 
-const DEFAULT_TARGETS       = ['src'];
-const IGNORED_DIRECTORIES   = new Set([
-  '.agents',
-  '.cache',
-  '.claude',
-  '.codex',
-  '.cursor',
-  '.dynamodb',
-  '.entire',
-  '.fusebox',
-  '.git',
-  '.grunt',
-  '.next',
-  '.next-bundle-budget',
-  '.next-playwright',
-  '.npm',
-  '.nuxt',
-  '.nyc_output',
-  '.openchamber',
-  '.opencode',
-  '.parcel-cache',
-  '.pnpm-staging-modules',
-  '.pnpm-store',
-  '.rpt2_cache',
-  '.rts2_cache_cjs',
-  '.rts2_cache_es',
-  '.rts2_cache_umd',
-  '.serverless',
-  '.specstory',
-  '.turbo',
-  '.vercel',
-  '.yarn',
-  '_implementation',
-  '_implementation_plans',
-  '_monorepo_plans',
-  'build',
-  'coverage',
-  'dist',
-  'jspm_packages',
-  'logs',
-  'node_modules',
-  'out',
-  'pids',
-  'playwright-report',
-  'test-results',
-  'web_modules'
-]);
-const SUPPORTED_EXTENSIONS  = new Set([
-  '.ts',
-  '.tsx',
-  '.mts',
-  '.cts',
-  '.js',
-  '.jsx',
-  '.mjs',
-  '.cjs'
-]);
+const DEFAULT_TARGETS = ['src'];
 
 async function main() {
-  const targets   = parseArgs(process.argv.slice(2));
-  const files     = await collectFiles(targets.length > 0 ? targets : DEFAULT_TARGETS);
-  const findings  = [];
+  const targets = parseArgs(process.argv.slice(2));
+  const files   = await collectFiles(
+    targets.length > 0 ? targets : DEFAULT_TARGETS,
+    TYPESCRIPT_EXTENSIONS
+  );
 
   if (files.length === 0) {
     throw new Error('No supported TypeScript or JavaScript files found in the requested target(s).');
   }
 
-  for (const filePath of files) {
-    const sourceText = await fs.readFile(filePath, 'utf8');
+  const findingsByFile = await mapWithConcurrency(
+    files,
+    FILE_CONCURRENCY,
+    async (filePath) => {
+      const sourceText = await fs.readFile(filePath, 'utf8');
 
-    findings.push(...findClassSyntax(sourceText, filePath));
-  }
+      return findClassSyntax(sourceText, filePath);
+    }
+  );
+  const findings       = findingsByFile.flat();
 
   if (findings.length === 0) {
     console.log(`No class syntax found in ${files.length} file(s).`);
@@ -120,89 +78,10 @@ function parseArgs(argv) {
   return targets;
 }
 
-async function collectFiles(targets) {
-  const collected = new Set();
-
-  for (const target of targets) {
-    await walkPath(path.resolve(process.cwd(), target), collected, true);
-  }
-
-  return Array.from(collected).sort();
-}
-
-async function walkPath(targetPath, collected, followSymbolicLink = false) {
-  let stats;
-
-  try {
-    stats = followSymbolicLink
-      ? await fs.stat(targetPath)
-      : await fs.lstat(targetPath);
-  } catch (error) {
-    const errorDetail = error instanceof Error ? `: ${error.message}` : '';
-    throw new Error(`Unable to inspect target ${targetPath}${errorDetail}`, { cause: error });
-  }
-
-  if (stats.isSymbolicLink()) return;
-
-  if (stats.isDirectory()) {
-    const entries = await fs.readdir(targetPath, { withFileTypes: true });
-
-    for (const entry of entries) {
-      if (entry.isDirectory() && IGNORED_DIRECTORIES.has(entry.name)) continue;
-      await walkPath(path.join(targetPath, entry.name), collected);
-    }
-    return;
-  }
-
-  if (stats.isFile() && SUPPORTED_EXTENSIONS.has(path.extname(targetPath).toLowerCase())) {
-    collected.add(targetPath);
-  }
-}
-
-function scriptKindFor(filePath) {
-  const normalizedFilePath = filePath.toLowerCase();
-
-  if (normalizedFilePath.endsWith('.tsx')) return ts.ScriptKind.TSX;
-  if (normalizedFilePath.endsWith('.jsx')) return ts.ScriptKind.JSX;
-  if (
-    normalizedFilePath.endsWith('.js')
-    || normalizedFilePath.endsWith('.mjs')
-    || normalizedFilePath.endsWith('.cjs')
-  ) {
-    return ts.ScriptKind.JS;
-  }
-  return ts.ScriptKind.TS;
-}
-
-function findClassSyntax(sourceText, filePath = 'source.ts') {
-  const sourceFile = ts.createSourceFile(
-    filePath,
-    sourceText,
-    ts.ScriptTarget.Latest,
-    false,
-    scriptKindFor(filePath)
-  );
-  const findings   = [];
-
-  function visit(node) {
-    if (ts.isClassDeclaration(node) || ts.isClassExpression(node)) {
-      const position = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile));
-
-      findings.push({
-        filePath  : filePath,
-        line      : position.line + 1,
-        column    : position.character + 1
-      });
-    }
-
-    ts.forEachChild(node, visit);
-  }
-
-  visit(sourceFile);
-  return findings;
-}
-
-export { findClassSyntax };
+export {
+  findClassSyntax,
+  findClassSyntaxInSourceFile
+};
 
 if (import.meta.main) {
   main().catch((error) => {

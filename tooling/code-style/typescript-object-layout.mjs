@@ -1,21 +1,18 @@
-import fs       from 'node:fs/promises';
-import path     from 'node:path';
-import process  from 'node:process';
-import ts       from '@typescript/typescript6';
+import fs                       from 'node:fs/promises';
+import path                     from 'node:path';
+import process                  from 'node:process';
+
+import {
+  FILE_CONCURRENCY,
+  TYPESCRIPT_EXTENSIONS,
+  collectFiles,
+  mapWithConcurrency
+}                               from './file-discovery.mjs';
+import { createSourceFile, ts } from './typescript-source.mjs';
 
 
-const DEFAULT_TARGETS         = ['src'];
-const DEFAULT_OPTIONAL_FILES  = ['next.config.ts'];
-const FILE_CONCURRENCY        = 16;
-const IGNORED_DIRECTORIES     = new Set([
-  '.cursor',
-  '.git',
-  '.next',
-  '.turbo',
-  'dist',
-  'node_modules'
-]);
-const SUPPORTED_EXTENSIONS    = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs']);
+const DEFAULT_TARGETS        = ['src', 'scripts', 'tooling'];
+const DEFAULT_OPTIONAL_FILES = ['next.config.ts', 'postcss.config.js'];
 
 const CHAR_TAB          = 9;
 const CHAR_NEWLINE      = 10;
@@ -25,14 +22,15 @@ const CHAR_COMMA        = 44;
 const CHAR_SLASH        = 47;
 const CHAR_CLOSE_BRACE  = 125;
 
-// AIDEV-NOTE: Shared results for the common comment-free gap keep analyzeGap allocation-free on the hot path.
+// Shared results keep the common comment-free path allocation-free.
 const EMPTY_PREFIX_LINES = Object.freeze([]);
 const EMPTY_GAP_ANALYSIS = Object.freeze({ prefixLines: EMPTY_PREFIX_LINES, trailingCommentText: '' });
 
 async function main() {
   const { fix, targets } = parseArgs(process.argv.slice(2));
   const files = await collectFiles(
-    targets.length > 0 ? targets : await resolveDefaultTargets()
+    targets.length > 0 ? targets : await resolveDefaultTargets(),
+    TYPESCRIPT_EXTENSIONS
   );
 
   if (files.length === 0) {
@@ -134,102 +132,8 @@ async function resolveDefaultTargets() {
   return [...DEFAULT_TARGETS, ...optionalFiles];
 }
 
-async function mapWithConcurrency(items, concurrency, task) {
-  const results = new Array(items.length).fill(undefined);
-  let nextIndex = 0;
-
-  async function runWorker() {
-    for (;;) {
-      const itemIndex = nextIndex;
-
-      if (itemIndex >= items.length) {
-        return;
-      }
-
-      nextIndex += 1;
-      results[itemIndex] = await task(items[itemIndex], itemIndex);
-    }
-  }
-
-  const workerCount = Math.min(concurrency, items.length);
-  const workers     = [];
-
-  for (let workerIndex = 0; workerIndex < workerCount; workerIndex += 1) {
-    workers.push(runWorker());
-  }
-
-  await Promise.all(workers);
-
-  return results;
-}
-
-async function collectFiles(targets) {
-  const collected = new Set();
-
-  await Promise.all(
-    targets.map((target) => walkPath(path.resolve(process.cwd(), target), collected))
-  );
-
-  return Array.from(collected).sort();
-}
-
-async function walkPath(targetPath, collected) {
-  let stats;
-
-  try {
-    stats = await fs.stat(targetPath);
-  } catch (error) {
-    throw new Error(`Target not found: ${targetPath}`, { cause: error });
-  }
-
-  if (stats.isDirectory()) {
-    await walkDirectory(targetPath, collected);
-    return;
-  }
-
-  if (stats.isFile() && isSupportedFile(targetPath)) {
-    collected.add(targetPath);
-  }
-}
-
-async function walkDirectory(directoryPath, collected) {
-  const entries      = await fs.readdir(directoryPath, { withFileTypes: true });
-  const pendingWalks = [];
-
-  for (const entry of entries) {
-    const entryPath = path.join(directoryPath, entry.name);
-
-    if (entry.isDirectory()) {
-      if (!IGNORED_DIRECTORIES.has(entry.name)) {
-        pendingWalks.push(walkDirectory(entryPath, collected));
-      }
-      continue;
-    }
-
-    if (entry.isFile()) {
-      if (isSupportedFile(entryPath)) {
-        collected.add(entryPath);
-      }
-      continue;
-    }
-
-    if (entry.isSymbolicLink()) {
-      // Symlinks resolve through stat so linked files and directories keep the previous follow behavior.
-      pendingWalks.push(walkPath(entryPath, collected));
-    }
-  }
-
-  await Promise.all(pendingWalks);
-}
-
-function isSupportedFile(filePath) {
-  return SUPPORTED_EXTENSIONS.has(path.extname(filePath));
-}
-
-export function formatSourceText(sourceText, filePath) {
-  let nextText = normalizeLineEndings(sourceText);
-
-  nextText = formatObjectLikeBlocks(nextText, filePath);
+export function formatParsedSourceText(sourceText, filePath, sourceFile) {
+  let nextText = formatObjectLikeBlocks(sourceText, filePath, sourceFile);
 
   if (!nextText.endsWith('\n')) {
     nextText += '\n';
@@ -238,22 +142,28 @@ export function formatSourceText(sourceText, filePath) {
   return nextText;
 }
 
+export function formatSourceText(sourceText, filePath) {
+  const normalizedText = normalizeLineEndings(sourceText);
+  const sourceFile     = createSourceFile(filePath, normalizedText);
+
+  return formatParsedSourceText(normalizedText, filePath, sourceFile);
+}
+
 function normalizeLineEndings(sourceText) {
   return sourceText.replace(/\r\n/g, '\n');
 }
 
-function formatObjectLikeBlocks(sourceText, filePath) {
+function formatObjectLikeBlocks(sourceText, filePath, sourceFile) {
   let nextText = sourceText;
 
   for (;;) {
-    const sourceFile = createSourceFile(filePath, nextText);
-    const blocks     = getRenderableObjectLikeBlocks(sourceFile, nextText);
+    const blocks = getRenderableObjectLikeBlocks(sourceFile, nextText);
 
     if (blocks.length === 0) {
       return nextText;
     }
 
-    // AIDEV-NOTE: Apply only unstable leaf blocks per pass so nested object rewrites land before any
+    // Apply only unstable leaf blocks per pass so nested object rewrites land before any
     // parent block rebuild. Blocks arrive in ascending, non-overlapping source order from the DFS
     // visit, so one forward segment join applies the whole pass without repeated string splicing.
     const parts = [];
@@ -273,35 +183,8 @@ function formatObjectLikeBlocks(sourceText, filePath) {
     }
 
     nextText = nextPassText;
+    sourceFile = createSourceFile(filePath, nextText);
   }
-}
-
-function createSourceFile(filePath, sourceText) {
-  // AIDEV-NOTE: setParentNodes stays false because every AST accessor here passes sourceFile
-  // explicitly; skipping parent wiring avoids a full extra tree walk per parse.
-  return ts.createSourceFile(
-    filePath,
-    sourceText,
-    ts.ScriptTarget.Latest,
-    false,
-    getScriptKind(filePath)
-  );
-}
-
-function getScriptKind(filePath) {
-  if (filePath.endsWith('.tsx')) {
-    return ts.ScriptKind.TSX;
-  }
-
-  if (filePath.endsWith('.jsx')) {
-    return ts.ScriptKind.JSX;
-  }
-
-  if (filePath.endsWith('.js')) {
-    return ts.ScriptKind.JS;
-  }
-
-  return ts.ScriptKind.TS;
 }
 
 function getRenderableObjectLikeBlocks(sourceFile, sourceText) {
@@ -316,21 +199,25 @@ function getRenderableObjectLikeBlocks(sourceFile, sourceText) {
       }
     });
 
+    if (hasUnstableRenderableDescendant) {
+      return true;
+    }
+
     if (!isRenderableObjectLike(node, sourceFile, sourceText)) {
-      return hasUnstableRenderableDescendant;
+      return false;
     }
 
     const renderedBlock = renderObjectLikeBlock(node, sourceFile, sourceText);
 
     if (renderedBlock === null) {
-      return hasUnstableRenderableDescendant;
+      return false;
     }
 
     const { start, end }            = getObjectLikeRange(node, sourceFile);
     const originalBlock             = sourceText.slice(start, end);
     const isUnstableRenderableBlock = renderedBlock !== originalBlock;
 
-    if (isUnstableRenderableBlock && !hasUnstableRenderableDescendant) {
+    if (isUnstableRenderableBlock) {
       blocks.push({
         end           : end,
         renderedBlock : renderedBlock,
@@ -338,7 +225,7 @@ function getRenderableObjectLikeBlocks(sourceFile, sourceText) {
       });
     }
 
-    return hasUnstableRenderableDescendant || isUnstableRenderableBlock;
+    return isUnstableRenderableBlock;
   }
 
   visit(sourceFile);
@@ -929,11 +816,13 @@ function renderRawMember(rawText, options) {
 }
 
 function prefixFirstLine(text, prefix) {
-  const lines = text.split('\n');
+  const newlineIndex = text.indexOf('\n');
 
-  lines[0] = `${prefix}${lines[0].trimStart()}`;
+  if (newlineIndex === -1) {
+    return `${prefix}${text.trimStart()}`;
+  }
 
-  return lines.join('\n');
+  return `${prefix}${text.slice(0, newlineIndex).trimStart()}${text.slice(newlineIndex)}`;
 }
 
 function getLineIndentAtPosition(sourceText, position) {
@@ -1011,7 +900,7 @@ function getSameLineTrailingCommentEndPosition(sourceText, position) {
   return position;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (import.meta.main) {
   main().catch((error) => {
     console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;
